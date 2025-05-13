@@ -16,10 +16,15 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const peer = useRef<Peer.Instance | null>(null);
   const seenSignals = useRef<Set<number>>(new Set());
+  const [hasSeenAnySignal, setHasSeenAnySignal] = useState(false);
 
   const attachPeerEvents = (p: Peer.Instance) => {
     p.on('signal', async (data) => {
-      await sendSignaling(callId, data.type === 'offer' || data.type === 'answer' ? data.type : 'ice', JSON.stringify(data));
+      if (data.type === 'offer' || data.type === 'answer') {
+        await sendSignaling(callId, data.type, JSON.stringify(data));
+      } else {
+        await sendSignaling(callId, 'ice', JSON.stringify(data));
+      }
     });
 
     p.on('stream', (stream) => {
@@ -50,6 +55,21 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
       const signals = await getSignaling(callId, isInitiator ? 'answer' : 'offer');
       const ices = await getSignaling(callId, 'ice');
 
+      if (!hasSeenAnySignal && (signals.length > 0 || ices.length > 0)) {
+        setHasSeenAnySignal(true);
+      }
+
+      if (hasSeenAnySignal && signals.length === 0 && ices.length === 0) {
+        console.log("Celălalt utilizator a închis apelul");
+        peer.current?.destroy();
+        peer.current = null;
+        localStream.getTracks().forEach(track => track.stop());
+        setRemoteStream(null);
+        setLocalStream(null);
+        window.location.href = "/";
+        return;
+      }
+
       signals.forEach((s: any) => {
         if (!seenSignals.current.has(s.id)) {
           seenSignals.current.add(s.id);
@@ -63,7 +83,9 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
             return;
           }
 
-          peer.current?.signal(signal);
+          if (peer.current) {
+            peer.current.signal(signal);
+          }
         }
       });
 
@@ -76,13 +98,18 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [localStream]);
+  }, [localStream, hasSeenAnySignal]);
 
   const endCall = async () => {
-    peer.current?.destroy();
-    peer.current = null;
+    if (peer.current) {
+      peer.current.destroy();
+      peer.current = null;
+    }
 
-    localStream?.getTracks().forEach((t) => t.stop());
+    if (localStream) {
+      localStream.getTracks().forEach(track => track.stop());
+    }
+
     setRemoteStream(null);
     setLocalStream(null);
 
@@ -102,9 +129,7 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
         </div>
       </div>
       <div className="text-center mt-4">
-        <button className="btn btn-danger" onClick={endCall}>
-          Închide apelul
-        </button>
+        <button className="btn btn-danger" onClick={endCall}>Închide apelul</button>
       </div>
     </div>
   );
