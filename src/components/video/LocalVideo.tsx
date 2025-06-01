@@ -13,7 +13,16 @@ const LocalVideo: React.FC<Props> = ({ stream }) => {
     }
   }, [stream]);
 
-  return <video ref={ref} autoPlay muted className="w-100 border" />;
+  return (
+    <video
+      ref={ref}
+      autoPlay
+      playsInline
+      muted={false}
+      className="w-full h-56 md:h-64 lg:h-72 object-cover rounded-2xl border-4 border-accent-blue shadow-xl bg-black"
+      style={{ background: "#0b1121" }}
+    />
+  );
 };
 
 export default LocalVideo;

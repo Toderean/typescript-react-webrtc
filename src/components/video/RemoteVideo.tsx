@@ -29,6 +29,7 @@ const RemoteVideo = ({ stream }: { stream: MediaStream | null }) => {
       playsInline
       muted={false}
       style={{ width: '100%', backgroundColor: 'black' }}
+      
     />
   );
 };
