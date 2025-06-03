@@ -47,6 +47,16 @@ const LoginPage: React.FC = () => {
         >
           Login
         </button>
+        <div className="mt-4 text-center">
+          <span className="text-gray-400">Nu ai cont? </span>
+          <button
+            type="button"
+            className="text-primary-blue underline font-semibold"
+            onClick={() => navigate("/register")}
+          >
+            Înregistrează-te
+          </button>
+        </div>
       </div>
     </div>
   )

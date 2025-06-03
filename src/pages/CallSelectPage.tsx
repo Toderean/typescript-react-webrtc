@@ -3,9 +3,14 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { jwtDecode } from "jwt-decode";
 import { API_URL, authHeaders } from "../api/signaling";
+import LogoutButton from "../components/LogoutButton";
+import HeaderBar from "../components/HeaderBar";
+import { motion, AnimatePresence } from "framer-motion";
+
 
 const CallSelectPage: React.FC = () => {
   const [users, setUsers] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
   const token = localStorage.getItem("token")!;
   const decoded: any = jwtDecode(token);
@@ -55,34 +60,63 @@ const CallSelectPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-midnight via-darkblue to-almost-black py-10">
-      <div className="w-full max-w-xl bg-darkblue/80 rounded-2xl p-8 shadow-2xl backdrop-blur-md">
-        <h2 className="text-2xl font-bold text-primary-blue text-center mb-6 drop-shadow">Selectează un utilizator pentru apel</h2>
-        <ul className="flex flex-col gap-4">
+  <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-midnight via-darkblue to-almost-black py-10">
+    <HeaderBar
+      searchQuery={searchQuery}
+      onSearchChange={setSearchQuery}
+      inCall={false}
+    />
+    <div className="w-full max-w-xl bg-darkblue/80 rounded-2xl p-8 shadow-2xl backdrop-blur-md">
+      <h2 className="text-2xl font-bold text-primary-blue text-center mb-6 drop-shadow">
+        Selectează un utilizator pentru apel
+      </h2>
+      <motion.ul
+        initial="hidden"
+        animate="visible"
+        variants={{
+          visible: { transition: { staggerChildren: 0.07 } }
+        }}
+        className="flex flex-col gap-4"
+      >
+        <AnimatePresence>
           {users.map((u) => (
-            <li
+            <motion.li
               key={u}
+              variants={{
+                hidden: { opacity: 0, x: -20 },
+                visible: { opacity: 1, x: 0 }
+              }}
+              exit={{ opacity: 0, x: 30, transition: { duration: 0.15 } }}
+              transition={{ duration: 0.32, type: "tween" }}
+              whileHover={{
+                scale: 1.04,
+                boxShadow: "0 6px 30px #2a3fff38"
+              }}
               className="flex items-center justify-between bg-midnight/80 px-5 py-3 rounded-xl shadow-lg hover:bg-midnight/90 transition"
             >
               <span className="text-white font-medium">{u}</span>
-              <button
+              <motion.button
+                whileTap={{ scale: 0.97 }}
                 className="px-4 py-1 rounded-lg bg-primary-blue hover:bg-accent-blue text-white font-semibold shadow transition"
                 onClick={() => callUser(u)}
               >
                 Apelează
-              </button>
-            </li>
+              </motion.button>
+            </motion.li>
           ))}
-        </ul>
-        <button
-          className="w-full mt-8 py-3 rounded-lg bg-gradient-to-r from-primary-blue to-accent-blue text-white font-bold text-lg shadow hover:from-accent-blue hover:to-primary-blue transition"
-          onClick={() => navigate("/group-call")}
-        >
-          Apel de grup
-        </button>
-      </div>
+        </AnimatePresence>
+      </motion.ul>
+      <motion.button
+        whileHover={{ scale: 1.02, boxShadow: "0 8px 32px #265BFF33" }}
+        whileTap={{ scale: 0.98 }}
+        className="w-full mt-8 py-3 rounded-lg bg-gradient-to-r from-primary-blue to-accent-blue text-white font-bold text-lg shadow hover:from-accent-blue hover:to-primary-blue transition"
+        onClick={() => navigate("/group-call")}
+      >
+        Apel de grup
+      </motion.button>
     </div>
-  );
+  </div>
+);
 };
 
 export default CallSelectPage;

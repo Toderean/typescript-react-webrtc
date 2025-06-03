@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage';
 import CallSelectPage from './pages/CallSelectPage';
 import GroupCallPage from './pages/GroupCallPage';
 import InvitationsPoller from './api/InvitationsBanner';
+import RegisterPage from './pages/RegisterPage';
 
 const App: React.FC = () => {
   const token = localStorage.getItem("token");
@@ -14,6 +15,7 @@ const App: React.FC = () => {
       <InvitationsPoller />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage/>}/>
         <Route path="/" element={token ? <CallSelectPage /> : <Navigate to="/login" />} />
         <Route path="/call/:callId" element={token ? <VideoChatPage /> : <Navigate to="/login" />} />
         <Route path="/group-call" element={token ? <GroupCallPage/> : <Navigate to="/login"/>} />

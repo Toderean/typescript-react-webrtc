@@ -4,6 +4,9 @@ import { sendSignaling, getSignaling, deleteSignaling, joinCall } from "../../ap
 import LocalVideo from "./LocalVideo";
 import RemoteVideo from "./RemoteVideo";
 import { jwtDecode } from "jwt-decode";
+import LogoutButton from "../LogoutButton";
+import HeaderBar from "../HeaderBar";
+
 
 interface Props {
   callId: string;
@@ -17,6 +20,8 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [remoteScreenShare, setRemoteScreenShare] = useState(false);
   const [accepted, setAccepted] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
 
   const peer = useRef<Peer.Instance | null>(null);
   const seenSignals = useRef<Set<number>>(new Set());
@@ -285,6 +290,11 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
   // ------ Layout normal, fără partajare
   return (
     <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-midnight via-darkblue to-almost-black py-8">
+            <HeaderBar
+            onSearchChange={setSearchQuery}
+        inCall={true}
+        endCall={endCall} 
+      />
       <h3 className="text-3xl font-bold text-primary-blue mb-8 drop-shadow">WebRTC Video Chat</h3>
       <div className="flex flex-col md:flex-row gap-10 w-full max-w-3xl items-center justify-center mb-10">
         <div className="bg-darkblue rounded-2xl shadow-xl p-4 flex flex-col items-center w-full max-w-xs">
