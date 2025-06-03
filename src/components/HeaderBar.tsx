@@ -13,7 +13,7 @@ const HeaderBar: React.FC<Props> = ({
   searchQuery,
   onSearchChange,
   inCall = false,
-  endCall
+  endCall,
 }) => {
   return (
     <header

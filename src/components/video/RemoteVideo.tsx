@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from "react";
 
 const RemoteVideo = ({ stream }: { stream: MediaStream | null }) => {
   const ref = useRef<HTMLVideoElement>(null);
@@ -18,8 +18,6 @@ const RemoteVideo = ({ stream }: { stream: MediaStream | null }) => {
     } else {
       console.warn("⚠️ Remote video ref not ready");
     }
-
-    
   }, [stream]);
 
   return (
@@ -28,8 +26,7 @@ const RemoteVideo = ({ stream }: { stream: MediaStream | null }) => {
       autoPlay
       playsInline
       muted={false}
-      style={{ width: '100%', backgroundColor: 'black' }}
-      
+      style={{ width: "100%", backgroundColor: "black" }}
     />
   );
 };

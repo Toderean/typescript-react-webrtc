@@ -27,7 +27,7 @@ const GroupCallPage: React.FC = () => {
     setSelected((prev) =>
       prev.includes(username)
         ? prev.filter((u) => u !== username)
-        : [...prev, username]
+        : [...prev, username],
     );
   };
 
@@ -37,7 +37,7 @@ const GroupCallPage: React.FC = () => {
       const res = await axios.post(
         `${API_URL}/calls/group`,
         { participants: selected },
-        authHeaders()
+        authHeaders(),
       );
       const { call_id } = res.data;
       navigate(`/call/${call_id}`);
@@ -49,7 +49,9 @@ const GroupCallPage: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-midnight via-darkblue to-almost-black">
       <div className="w-full max-w-lg bg-darkblue/90 rounded-2xl p-8 shadow-2xl backdrop-blur-md">
-        <h3 className="text-2xl font-bold text-primary-blue text-center mb-6 drop-shadow">Inițiază apel de grup</h3>
+        <h3 className="text-2xl font-bold text-primary-blue text-center mb-6 drop-shadow">
+          Inițiază apel de grup
+        </h3>
         <ul className="flex flex-col gap-4 mb-6">
           {users.map((u) => (
             <li

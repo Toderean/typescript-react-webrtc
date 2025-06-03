@@ -1,10 +1,15 @@
 import React, { useEffect, useRef, useState } from "react";
 import Peer from "simple-peer";
-import { sendSignaling, getSignaling, deleteSignaling, leaveCall, getParticipants } from "../../api/signaling";
+import {
+  sendSignaling,
+  getSignaling,
+  deleteSignaling,
+  leaveCall,
+  getParticipants,
+} from "../../api/signaling";
 import { jwtDecode } from "jwt-decode";
 import HeaderBar from "../HeaderBar";
 import VideoTileWithSpeaking from "../VideoTileWithSpeaking";
-
 
 interface SignalingData {
   id: number;
@@ -24,7 +29,9 @@ const VideoChatGroup: React.FC<Props> = ({ callId }) => {
   const [participants, setParticipants] = useState<string[]>([]);
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
   const [sharingScreen, setSharingScreen] = useState(false);
-  const [activeScreenSharer, setActiveScreenSharer] = useState<string | null>(null);
+  const [activeScreenSharer, setActiveScreenSharer] = useState<string | null>(
+    null,
+  );
   const [searchQuery, setSearchQuery] = useState("");
 
   const peers = useRef<{ [user: string]: Peer.Instance }>({});
@@ -33,17 +40,23 @@ const VideoChatGroup: React.FC<Props> = ({ callId }) => {
   const me = token ? (jwtDecode(token) as any).sub : "";
 
   // ------------- Array-uri pentru tiles
-  const allUsers = [me, ...Object.keys(remotes).filter(u => u !== me)];
+  const allUsers = [me, ...Object.keys(remotes).filter((u) => u !== me)];
 
   const columnUsers =
     activeScreenSharer === me
-      ? Object.keys(remotes).filter(user => user !== me)
-      : [me, ...Object.keys(remotes).filter(user => user !== me && user !== activeScreenSharer)];
+      ? Object.keys(remotes).filter((user) => user !== me)
+      : [
+          me,
+          ...Object.keys(remotes).filter(
+            (user) => user !== me && user !== activeScreenSharer,
+          ),
+        ];
 
   // ------------------- EFFECTS
 
   useEffect(() => {
-    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+    navigator.mediaDevices
+      .getUserMedia({ video: true, audio: true })
       .then((s) => setLocalStream(s))
       .catch(console.error);
   }, []);
@@ -68,7 +81,7 @@ const VideoChatGroup: React.FC<Props> = ({ callId }) => {
           initiator: true,
           trickle: false,
           stream: localStream,
-          config: { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] }
+          config: { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] },
         });
 
         p.on("signal", async (data: any) => {
@@ -76,7 +89,7 @@ const VideoChatGroup: React.FC<Props> = ({ callId }) => {
             callId,
             data.type === "offer" || data.type === "answer" ? data.type : "ice",
             JSON.stringify(data),
-            user
+            user,
           );
         });
 
@@ -84,7 +97,7 @@ const VideoChatGroup: React.FC<Props> = ({ callId }) => {
           setRemotes((rem) => ({ ...rem, [user]: stream }));
         });
 
-        p.on("error", err => {
+        p.on("error", (err) => {
           console.error(`[${me}] Peer error with ${user}:`, err);
         });
 
@@ -99,9 +112,17 @@ const VideoChatGroup: React.FC<Props> = ({ callId }) => {
         if (user === me) continue;
 
         const offers: SignalingData[] = await getSignaling(callId, "offer", me);
-        const answers: SignalingData[] = await getSignaling(callId, "answer", me);
+        const answers: SignalingData[] = await getSignaling(
+          callId,
+          "answer",
+          me,
+        );
         const ices: SignalingData[] = await getSignaling(callId, "ice", me);
-        const screens: SignalingData[] = await getSignaling(callId, "screen-share", me);
+        const screens: SignalingData[] = await getSignaling(
+          callId,
+          "screen-share",
+          me,
+        );
 
         // Screen-share signaling
         screens
@@ -112,56 +133,74 @@ const VideoChatGroup: React.FC<Props> = ({ callId }) => {
               setActiveScreenSharer(sig.sender);
             }
             if (sig.content === "stop") {
-              setActiveScreenSharer((prev) => (prev === sig.sender ? null : prev));
+              setActiveScreenSharer((prev) =>
+                prev === sig.sender ? null : prev,
+              );
             }
           });
 
         // Offers/answers/ices
-        offers.filter((sig) => sig.sender === user && !seenSignals.current.has(sig.id)).forEach((sig) => {
-          if (!peers.current[user]) {
-            const p = new Peer({
-              initiator: false,
-              trickle: false,
-              stream: localStream!,
-              config: { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] }
-            });
+        offers
+          .filter(
+            (sig) => sig.sender === user && !seenSignals.current.has(sig.id),
+          )
+          .forEach((sig) => {
+            if (!peers.current[user]) {
+              const p = new Peer({
+                initiator: false,
+                trickle: false,
+                stream: localStream!,
+                config: {
+                  iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+                },
+              });
 
-            p.on("signal", async (data: any) => {
-              await sendSignaling(
-                callId,
-                data.type === "offer" || data.type === "answer" ? data.type : "ice",
-                JSON.stringify(data),
-                user
-              );
-            });
+              p.on("signal", async (data: any) => {
+                await sendSignaling(
+                  callId,
+                  data.type === "offer" || data.type === "answer"
+                    ? data.type
+                    : "ice",
+                  JSON.stringify(data),
+                  user,
+                );
+              });
 
-            p.on("stream", (stream: MediaStream) => {
-              setRemotes((rem) => ({ ...rem, [user]: stream }));
-            });
+              p.on("stream", (stream: MediaStream) => {
+                setRemotes((rem) => ({ ...rem, [user]: stream }));
+              });
 
-            p.on("error", err => {
-              console.error(`[${me}] Peer error with ${user}:`, err);
-            });
+              p.on("error", (err) => {
+                console.error(`[${me}] Peer error with ${user}:`, err);
+              });
 
-            peers.current[user] = p;
-          }
-          peers.current[user].signal(JSON.parse(sig.content));
-          seenSignals.current.add(sig.id);
-        });
-
-        answers.filter((sig) => sig.sender === user && !seenSignals.current.has(sig.id)).forEach((sig) => {
-          if (peers.current[user]) {
+              peers.current[user] = p;
+            }
             peers.current[user].signal(JSON.parse(sig.content));
             seenSignals.current.add(sig.id);
-          }
-        });
+          });
 
-        ices.filter((sig) => sig.sender === user && !seenSignals.current.has(sig.id)).forEach((sig) => {
-          if (peers.current[user]) {
-            peers.current[user].signal(JSON.parse(sig.content));
-            seenSignals.current.add(sig.id);
-          }
-        });
+        answers
+          .filter(
+            (sig) => sig.sender === user && !seenSignals.current.has(sig.id),
+          )
+          .forEach((sig) => {
+            if (peers.current[user]) {
+              peers.current[user].signal(JSON.parse(sig.content));
+              seenSignals.current.add(sig.id);
+            }
+          });
+
+        ices
+          .filter(
+            (sig) => sig.sender === user && !seenSignals.current.has(sig.id),
+          )
+          .forEach((sig) => {
+            if (peers.current[user]) {
+              peers.current[user].signal(JSON.parse(sig.content));
+              seenSignals.current.add(sig.id);
+            }
+          });
       }
     }, 1200);
     return () => clearInterval(intv);
@@ -170,7 +209,9 @@ const VideoChatGroup: React.FC<Props> = ({ callId }) => {
   // Share screen
   const handleShareScreen = async () => {
     try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+      });
       setScreenStream(stream);
       setSharingScreen(true);
       setActiveScreenSharer(me);
@@ -198,7 +239,10 @@ const VideoChatGroup: React.FC<Props> = ({ callId }) => {
     setScreenStream(null);
     setActiveScreenSharer(null);
 
-    const camStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    const camStream = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: true,
+    });
     setLocalStream(camStream);
 
     Object.values(peers.current).forEach((p) => {
@@ -212,8 +256,8 @@ const VideoChatGroup: React.FC<Props> = ({ callId }) => {
 
   // Iesire apel
   const leaveGroup = async () => {
-    Object.values(peers.current).forEach(p => p.destroy());
-    localStream?.getTracks().forEach(t => t.stop());
+    Object.values(peers.current).forEach((p) => p.destroy());
+    localStream?.getTracks().forEach((t) => t.stop());
     await leaveCall(callId);
     await deleteSignaling(callId);
     window.location.replace("/");
@@ -232,26 +276,25 @@ const VideoChatGroup: React.FC<Props> = ({ callId }) => {
             playsInline
             muted
             className="max-w-[950px] max-h-[68vh] w-full h-full rounded-2xl bg-black"
-            ref={el => { if (el && screenStream) el.srcObject = screenStream; }}
+            ref={(el) => {
+              if (el && screenStream) el.srcObject = screenStream;
+            }}
           />
+        ) : !!activeScreenSharer && remotes[activeScreenSharer] ? (
+          <div className="max-w-[950px] max-h-[68vh] w-full h-full rounded-2xl bg-black flex items-center justify-center">
+            <VideoTileWithSpeaking
+              stream={remotes[activeScreenSharer]}
+              username={activeScreenSharer}
+            />
+          </div>
         ) : (
-          !!activeScreenSharer && remotes[activeScreenSharer] ? (
-            <div className="max-w-[950px] max-h-[68vh] w-full h-full rounded-2xl bg-black flex items-center justify-center">
-              <VideoTileWithSpeaking
-                stream={remotes[activeScreenSharer]}
-                username={activeScreenSharer}
-              />
-            </div>
-          ) : (
-            <div className="w-[950px] h-[68vh] rounded-2xl bg-black flex items-center justify-center text-white">
-              Se așteaptă partajare...
-            </div>
-          )
+          <div className="w-[950px] h-[68vh] rounded-2xl bg-black flex items-center justify-center text-white">
+            Se așteaptă partajare...
+          </div>
         )}
       </div>
     );
   }
-  
 
   // Camera column când cineva share-uiește
   const cameraColumn = (
@@ -271,7 +314,6 @@ const VideoChatGroup: React.FC<Props> = ({ callId }) => {
       ))}
     </div>
   );
-  
 
   // Camera grid când nimeni nu share-uiește
   const cameraGrid = (
@@ -284,12 +326,13 @@ const VideoChatGroup: React.FC<Props> = ({ callId }) => {
               username={user === me ? `${me} (tu)` : user}
             />
           </div>
-          <span className="text-center mt-1 font-bold text-white text-xs">{user === me ? `${me} (tu)` : user}</span>
+          <span className="text-center mt-1 font-bold text-white text-xs">
+            {user === me ? `${me} (tu)` : user}
+          </span>
         </div>
       ))}
     </div>
   );
-  
 
   return (
     <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-midnight via-darkblue to-almost-black py-8">
@@ -298,7 +341,9 @@ const VideoChatGroup: React.FC<Props> = ({ callId }) => {
         inCall={true}
         endCall={leaveGroup}
       />
-      <h3 className="text-3xl font-bold text-primary-blue mb-8 drop-shadow">Group Video Chat</h3>
+      <h3 className="text-3xl font-bold text-primary-blue mb-8 drop-shadow">
+        Group Video Chat
+      </h3>
       <div className="flex flex-row gap-10 w-full max-w-6xl justify-center">
         <div className="flex-1 bg-darkblue rounded-2xl shadow-xl p-4 flex items-center justify-center min-h-[480px] max-h-[75vh] max-w-4xl">
           {isSharing ? mainContent : cameraGrid}
@@ -306,18 +351,24 @@ const VideoChatGroup: React.FC<Props> = ({ callId }) => {
         {isSharing && cameraColumn}
       </div>
       <div className="text-center mt-6 flex gap-4 justify-center">
-        <button className="px-8 py-2 rounded-xl bg-gradient-to-r from-primary-blue to-accent-blue text-white font-bold shadow hover:from-accent-blue hover:to-primary-blue transition"
-          onClick={leaveGroup}>
+        <button
+          className="px-8 py-2 rounded-xl bg-gradient-to-r from-primary-blue to-accent-blue text-white font-bold shadow hover:from-accent-blue hover:to-primary-blue transition"
+          onClick={leaveGroup}
+        >
           Părăsește grupul
         </button>
         {!sharingScreen ? (
-          <button className="px-5 py-2 rounded-xl bg-primary-blue hover:bg-accent-blue text-white font-bold shadow transition"
-            onClick={handleShareScreen}>
+          <button
+            className="px-5 py-2 rounded-xl bg-primary-blue hover:bg-accent-blue text-white font-bold shadow transition"
+            onClick={handleShareScreen}
+          >
             Partajează ecranul
           </button>
         ) : (
-          <button className="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold shadow transition"
-            onClick={handleStopShareScreen}>
+          <button
+            className="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold shadow transition"
+            onClick={handleStopShareScreen}
+          >
             Oprește partajarea
           </button>
         )}

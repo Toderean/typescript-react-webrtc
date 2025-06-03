@@ -1,13 +1,16 @@
 import React, { useEffect, useRef, useState } from "react";
 import Peer from "simple-peer";
-import { sendSignaling, getSignaling, deleteSignaling, joinCall } from "../../api/signaling";
+import {
+  sendSignaling,
+  getSignaling,
+  deleteSignaling,
+  joinCall,
+} from "../../api/signaling";
 import LocalVideo from "./LocalVideo";
 import RemoteVideo from "./RemoteVideo";
 import { jwtDecode } from "jwt-decode";
-import LogoutButton from "../LogoutButton";
 import HeaderBar from "../HeaderBar";
 import CallingAvatar from "../AvatarCalling";
-
 
 interface Props {
   callId: string;
@@ -22,7 +25,6 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
   const [remoteScreenShare, setRemoteScreenShare] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-
 
   const peer = useRef<Peer.Instance | null>(null);
   const seenSignals = useRef<Set<number>>(new Set());
@@ -50,13 +52,17 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
     if (!cameraStream) return;
     if (isInitiator && !peer.current) {
       joinCall(callId).catch(console.error);
-      const p = new Peer({ initiator: true, trickle: false, stream: cameraStream });
+      const p = new Peer({
+        initiator: true,
+        trickle: false,
+        stream: cameraStream,
+      });
       p.on("signal", async (data: any) => {
         await sendSignaling(
           callId,
           data.type === "offer" || data.type === "answer" ? data.type : "ice",
           JSON.stringify(data),
-          targetUser
+          targetUser,
         );
       });
       p.on("stream", (stream: MediaStream) => setRemoteStream(stream));
@@ -71,13 +77,17 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
     const offers: any[] = await getSignaling(callId, "offer", me);
     if (!offers.length) return;
     const offer = JSON.parse(offers[0].content);
-    const p = new Peer({ initiator: false, trickle: false, stream: cameraStream });
+    const p = new Peer({
+      initiator: false,
+      trickle: false,
+      stream: cameraStream,
+    });
     p.on("signal", async (data: any) => {
       await sendSignaling(
         callId,
         data.type === "offer" || data.type === "answer" ? data.type : "ice",
         JSON.stringify(data),
-        targetUser
+        targetUser,
       );
     });
     p.on("stream", (stream: MediaStream) => setRemoteStream(stream));
@@ -116,14 +126,16 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
             initiator: false,
             trickle: false,
             stream: cameraStream,
-            config: { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] }
+            config: { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] },
           });
           p.on("signal", async (data: any) => {
             await sendSignaling(
               callId,
-              data.type === "offer" || data.type === "answer" ? data.type : "ice",
+              data.type === "offer" || data.type === "answer"
+                ? data.type
+                : "ice",
               JSON.stringify(data),
-              targetUser
+              targetUser,
             );
           });
           p.on("stream", (stream: MediaStream) => setRemoteStream(stream));
@@ -161,7 +173,9 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
   // Share screen logic
   const handleShareScreen = async () => {
     try {
-      const scrStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      const scrStream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+      });
       setScreenStream(scrStream);
       await sendSignaling(callId, "screen-share", "start", targetUser);
 
@@ -171,7 +185,11 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
           .getTracks()
           .find((t: MediaStreamTrack) => t.kind === "video");
         if (videoSender) {
-          peer.current.replaceTrack(videoSender, screenTrack, peer.current.streams[0]);
+          peer.current.replaceTrack(
+            videoSender,
+            screenTrack,
+            peer.current.streams[0],
+          );
         }
       }
       scrStream.getVideoTracks()[0].onended = () => handleStopShareScreen();
@@ -194,7 +212,7 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
           peer.current.replaceTrack(
             videoSender,
             cameraStream.getVideoTracks()[0],
-            peer.current.streams[0]
+            peer.current.streams[0],
           );
         }
       }
@@ -241,7 +259,9 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
   if (isLocalScreenSharing) {
     return (
       <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-midnight via-darkblue to-almost-black py-8">
-        <h3 className="text-3xl font-bold text-primary-blue mb-8 drop-shadow">WebRTC Video Chat</h3>
+        <h3 className="text-3xl font-bold text-primary-blue mb-8 drop-shadow">
+          WebRTC Video Chat
+        </h3>
         <div className="flex flex-row w-full max-w-6xl items-center justify-center mb-10 gap-10">
           <div className="flex-1 bg-darkblue rounded-2xl shadow-xl p-2 flex items-center justify-center min-h-[400px]">
             <video
@@ -249,7 +269,9 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
               playsInline
               muted
               className="w-full h-full rounded-2xl"
-              ref={(el) => { if (el && screenStream) el.srcObject = screenStream; }}
+              ref={(el) => {
+                if (el && screenStream) el.srcObject = screenStream;
+              }}
             />
           </div>
           <div className="flex flex-col gap-6 min-w-[300px]">
@@ -258,7 +280,9 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
               <LocalVideo stream={cameraStream} />
             </div>
             <div className="bg-midnight rounded-2xl shadow-xl p-2 flex flex-col items-center">
-              <span className="mb-2 text-primary-blue font-semibold">{targetUser}</span>
+              <span className="mb-2 text-primary-blue font-semibold">
+                {targetUser}
+              </span>
               <RemoteVideo stream={remoteStream} />
             </div>
           </div>
@@ -285,8 +309,13 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
   if (isRemoteScreenSharing) {
     return (
       <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-midnight via-darkblue to-almost-black py-8">
-        <h3 className="text-3xl font-bold text-primary-blue mb-8 drop-shadow">WebRTC Video Chat</h3>
-        <div className="relative w-full flex justify-center items-center mb-10" style={{ minHeight: 500 }}>
+        <h3 className="text-3xl font-bold text-primary-blue mb-8 drop-shadow">
+          WebRTC Video Chat
+        </h3>
+        <div
+          className="relative w-full flex justify-center items-center mb-10"
+          style={{ minHeight: 500 }}
+        >
           <div className="max-w-[900px] max-h-[65vh] w-full flex justify-center">
             <RemoteVideo stream={remoteStream} />
           </div>
@@ -309,19 +338,23 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
   // ------ Layout normal, fără partajare
   return (
     <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-midnight via-darkblue to-almost-black py-8">
-            <HeaderBar
-            onSearchChange={setSearchQuery}
+      <HeaderBar
+        onSearchChange={setSearchQuery}
         inCall={true}
-        endCall={endCall} 
+        endCall={endCall}
       />
-      <h3 className="text-3xl font-bold text-primary-blue mb-8 drop-shadow">WebRTC Video Chat</h3>
+      <h3 className="text-3xl font-bold text-primary-blue mb-8 drop-shadow">
+        WebRTC Video Chat
+      </h3>
       <div className="flex flex-col md:flex-row gap-10 w-full max-w-3xl items-center justify-center mb-10">
         <div className="bg-darkblue rounded-2xl shadow-xl p-4 flex flex-col items-center w-full max-w-xs">
           <span className="mb-2 text-accent-blue font-semibold">Tu</span>
           <LocalVideo stream={cameraStream} />
         </div>
         <div className="bg-midnight rounded-2xl shadow-xl p-4 flex flex-col items-center w-full max-w-xs">
-          <span className="mb-2 text-primary-blue font-semibold">{targetUser}</span>
+          <span className="mb-2 text-primary-blue font-semibold">
+            {targetUser}
+          </span>
           <RemoteVideo stream={remoteStream} />
         </div>
       </div>

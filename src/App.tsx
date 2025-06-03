@@ -1,17 +1,23 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import React from "react";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+} from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import VideoChatPage from './pages/VideoChatPage';
-import LoginPage from './pages/LoginPage';
-import CallSelectPage from './pages/CallSelectPage';
-import GroupCallPage from './pages/GroupCallPage';
-import InvitationsPoller from './api/InvitationsBanner';
-import RegisterPage from './pages/RegisterPage';
+import VideoChatPage from "./pages/VideoChatPage";
+import LoginPage from "./pages/LoginPage";
+import CallSelectPage from "./pages/CallSelectPage";
+import GroupCallPage from "./pages/GroupCallPage";
+import InvitationsPoller from "./api/InvitationsBanner";
+import RegisterPage from "./pages/RegisterPage";
 
 const pageVariants = {
   initial: { opacity: 0, y: 36 },
   animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -36 }
+  exit: { opacity: 0, y: -36 },
 };
 
 const AnimatedRoutes: React.FC = () => {

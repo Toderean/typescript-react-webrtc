@@ -20,13 +20,16 @@ const InvitationsBanner: React.FC = () => {
     if (!token) return;
     const iv = setInterval(async () => {
       try {
-        const res = await axios.get(`${API_URL}/calls/invitations`, authHeaders());
+        const res = await axios.get(
+          `${API_URL}/calls/invitations`,
+          authHeaders(),
+        );
         // Caută doar apeluri de grup, ignoră cele refuzate
         const calls = res.data.filter(
           (inv: any) =>
             inv.call_id.startsWith("group_") &&
             !window.location.pathname.includes(inv.call_id) &&
-            !dismissed.includes(inv.call_id)
+            !dismissed.includes(inv.call_id),
         );
         if (calls.length > 0) {
           setInvitation(calls[0]);
@@ -61,7 +64,9 @@ const InvitationsBanner: React.FC = () => {
                  flex flex-col items-center gap-3 animate-fade-in"
     >
       <div className="text-white text-center text-lg">
-        <span className="font-bold text-primary-blue">{invitation.creator || "Cineva"}</span>
+        <span className="font-bold text-primary-blue">
+          {invitation.creator || "Cineva"}
+        </span>
         <span className="mx-1">te-a invitat la un apel de grup.</span>
       </div>
       <div className="flex gap-3">

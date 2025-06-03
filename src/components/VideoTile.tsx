@@ -7,7 +7,11 @@ interface VideoTileProps {
   isSpeaking?: boolean;
 }
 
-const VideoTile: React.FC<VideoTileProps> = ({ stream, username, isSpeaking = false }) => {
+const VideoTile: React.FC<VideoTileProps> = ({
+  stream,
+  username,
+  isSpeaking = false,
+}) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -19,7 +23,11 @@ const VideoTile: React.FC<VideoTileProps> = ({ stream, username, isSpeaking = fa
   return (
     <motion.div
       className="relative w-60 h-44 rounded-2xl bg-black flex items-center justify-center shadow-lg"
-      animate={isSpeaking ? { boxShadow: "0 0 0 6px #38bdf8, 0 0 28px #38bdf8bb" } : { boxShadow: "0 0 0 0 transparent" }}
+      animate={
+        isSpeaking
+          ? { boxShadow: "0 0 0 6px #38bdf8, 0 0 28px #38bdf8bb" }
+          : { boxShadow: "0 0 0 0 transparent" }
+      }
       transition={{ type: "spring", stiffness: 120, damping: 15 }}
     >
       <video
@@ -29,7 +37,9 @@ const VideoTile: React.FC<VideoTileProps> = ({ stream, username, isSpeaking = fa
         muted={username === "me"}
         className="w-full h-full rounded-2xl"
       />
-      <span className="absolute bottom-2 left-2 text-white text-xs bg-darkblue/80 rounded px-2 py-1">{username}</span>
+      <span className="absolute bottom-2 left-2 text-white text-xs bg-darkblue/80 rounded px-2 py-1">
+        {username}
+      </span>
     </motion.div>
   );
 };

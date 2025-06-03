@@ -26,14 +26,17 @@ const RegisterPage: React.FC = () => {
     setLoading(true);
     try {
       await axios.post(`${API_URL}/auth/register`, { username, password });
-      const loginResp = await axios.post(`${API_URL}/auth/login`, { username, password });
+      const loginResp = await axios.post(`${API_URL}/auth/login`, {
+        username,
+        password,
+      });
       localStorage.setItem("token", loginResp.data.access_token);
       navigate("/");
     } catch (err: any) {
       setError(
         err?.response?.data?.detail
           ? String(err.response.data.detail)
-          : "Eroare la înregistrare sau login!"
+          : "Eroare la înregistrare sau login!",
       );
     }
     setLoading(false);
@@ -42,7 +45,9 @@ const RegisterPage: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-midnight via-darkblue to-almost-black py-8">
       <div className="w-full max-w-md bg-darkblue/90 rounded-2xl p-8 shadow-2xl backdrop-blur-md">
-        <h2 className="text-2xl font-bold text-primary-blue text-center mb-6 drop-shadow">Înregistrare cont nou</h2>
+        <h2 className="text-2xl font-bold text-primary-blue text-center mb-6 drop-shadow">
+          Înregistrare cont nou
+        </h2>
         <form className="flex flex-col gap-4" onSubmit={handleRegister}>
           <input
             type="text"
@@ -50,7 +55,7 @@ const RegisterPage: React.FC = () => {
             placeholder="Username"
             value={username}
             autoComplete="username"
-            onChange={e => setUsername(e.target.value)}
+            onChange={(e) => setUsername(e.target.value)}
           />
           <input
             type="password"
@@ -58,7 +63,7 @@ const RegisterPage: React.FC = () => {
             placeholder="Parolă"
             value={password}
             autoComplete="new-password"
-            onChange={e => setPassword(e.target.value)}
+            onChange={(e) => setPassword(e.target.value)}
           />
           <input
             type="password"
@@ -66,7 +71,7 @@ const RegisterPage: React.FC = () => {
             placeholder="Confirmă parolă"
             value={password2}
             autoComplete="new-password"
-            onChange={e => setPassword2(e.target.value)}
+            onChange={(e) => setPassword2(e.target.value)}
           />
           {error && <div className="text-red-400 text-center">{error}</div>}
           <button
