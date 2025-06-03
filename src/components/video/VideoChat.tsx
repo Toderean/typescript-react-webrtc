@@ -6,6 +6,7 @@ import RemoteVideo from "./RemoteVideo";
 import { jwtDecode } from "jwt-decode";
 import LogoutButton from "../LogoutButton";
 import HeaderBar from "../HeaderBar";
+import CallingAvatar from "../AvatarCalling";
 
 
 interface Props {
@@ -137,6 +138,7 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
         if (isInitiator && peer.current && !appliedAnswer.current) {
           peer.current.signal(JSON.parse(sig.content));
           appliedAnswer.current = true;
+          setAccepted(true);
         }
       });
       ices.forEach((sig: any) => {
@@ -217,6 +219,23 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
 
   const isLocalScreenSharing = !!screenStream;
   const isRemoteScreenSharing = !!remoteScreenShare;
+
+  if (!accepted && isInitiator) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-midnight via-darkblue to-almost-black py-8">
+        <h3 className="text-2xl font-bold text-primary-blue mb-8 drop-shadow">
+          Apelezi pe {targetUser}...
+        </h3>
+        <CallingAvatar username={targetUser || "?"} />
+        <button
+          className="mt-10 px-8 py-2 rounded-xl bg-red-700 hover:bg-red-800 text-white font-bold shadow transition"
+          onClick={endCall}
+        >
+          Anulează apelul
+        </button>
+      </div>
+    );
+  }
 
   // ------ layout pentru "cel care partajeaza"
   if (isLocalScreenSharing) {

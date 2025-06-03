@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import Peer from "simple-peer";
-import { sendSignaling, getSignaling, deleteSignaling, joinCall, leaveCall, getParticipants } from "../../api/signaling";
-import LocalVideo from "./LocalVideo";
-import RemoteVideo from "./RemoteVideo";
+import { sendSignaling, getSignaling, deleteSignaling, leaveCall, getParticipants } from "../../api/signaling";
 import { jwtDecode } from "jwt-decode";
 import HeaderBar from "../HeaderBar";
+import VideoTileWithSpeaking from "../VideoTileWithSpeaking";
+
 
 interface SignalingData {
   id: number;
@@ -27,20 +27,27 @@ const VideoChatGroup: React.FC<Props> = ({ callId }) => {
   const [activeScreenSharer, setActiveScreenSharer] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
-
   const peers = useRef<{ [user: string]: Peer.Instance }>({});
   const seenSignals = useRef<Set<number>>(new Set());
   const token = localStorage.getItem("token");
   const me = token ? (jwtDecode(token) as any).sub : "";
 
-  // 1. Local video
+  // ------------- Array-uri pentru tiles
+  const allUsers = [me, ...Object.keys(remotes).filter(u => u !== me)];
+
+  const columnUsers =
+    activeScreenSharer === me
+      ? Object.keys(remotes).filter(user => user !== me)
+      : [me, ...Object.keys(remotes).filter(user => user !== me && user !== activeScreenSharer)];
+
+  // ------------------- EFFECTS
+
   useEffect(() => {
     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       .then((s) => setLocalStream(s))
       .catch(console.error);
   }, []);
 
-  // 2. participanti polling
   useEffect(() => {
     const intv = setInterval(() => {
       getParticipants(callId).then((res) => {
@@ -50,7 +57,6 @@ const VideoChatGroup: React.FC<Props> = ({ callId }) => {
     return () => clearInterval(intv);
   }, [callId]);
 
-  // 3. Peer connections
   useEffect(() => {
     if (!localStream || participants.length === 0) return;
     participants.forEach((user) => {
@@ -87,7 +93,6 @@ const VideoChatGroup: React.FC<Props> = ({ callId }) => {
     });
   }, [participants, localStream, me, callId]);
 
-  // 4. Poll signaling (screen share detection)
   useEffect(() => {
     const intv = setInterval(async () => {
       for (let user of participants) {
@@ -111,7 +116,7 @@ const VideoChatGroup: React.FC<Props> = ({ callId }) => {
             }
           });
 
-        // restul semnalelor ca inainte (offer, answer, ice)
+        // Offers/answers/ices
         offers.filter((sig) => sig.sender === user && !seenSignals.current.has(sig.id)).forEach((sig) => {
           if (!peers.current[user]) {
             const p = new Peer({
@@ -162,7 +167,7 @@ const VideoChatGroup: React.FC<Props> = ({ callId }) => {
     return () => clearInterval(intv);
   }, [participants, me, callId, localStream]);
 
-  // 5. share screen
+  // Share screen
   const handleShareScreen = async () => {
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
@@ -205,7 +210,7 @@ const VideoChatGroup: React.FC<Props> = ({ callId }) => {
     await sendSignaling(callId, "screen-share", "stop");
   };
 
-  // 6. iesire apel
+  // Iesire apel
   const leaveGroup = async () => {
     Object.values(peers.current).forEach(p => p.destroy());
     localStream?.getTracks().forEach(t => t.stop());
@@ -213,12 +218,9 @@ const VideoChatGroup: React.FC<Props> = ({ callId }) => {
     await deleteSignaling(callId);
     window.location.replace("/");
   };
-  
-
-  // === LAYOUT LOGIC ===
-  const isSharing = !!activeScreenSharer;
 
   // Main content (centru): dacă eu share-uiesc, văd screen-ul meu, altfel văd screen-ul lui X (RemoteVideo)
+  const isSharing = !!activeScreenSharer;
   let mainContent = null;
   if (isSharing) {
     const isMeSharing = activeScreenSharer === me;
@@ -235,7 +237,10 @@ const VideoChatGroup: React.FC<Props> = ({ callId }) => {
         ) : (
           !!activeScreenSharer && remotes[activeScreenSharer] ? (
             <div className="max-w-[950px] max-h-[68vh] w-full h-full rounded-2xl bg-black flex items-center justify-center">
-              <RemoteVideo stream={remotes[activeScreenSharer]} />
+              <VideoTileWithSpeaking
+                stream={remotes[activeScreenSharer]}
+                username={activeScreenSharer}
+              />
             </div>
           ) : (
             <div className="w-[950px] h-[68vh] rounded-2xl bg-black flex items-center justify-center text-white">
@@ -246,65 +251,53 @@ const VideoChatGroup: React.FC<Props> = ({ callId }) => {
       </div>
     );
   }
+  
 
   // Camera column când cineva share-uiește
   const cameraColumn = (
     <div className="w-72 flex flex-col items-center bg-midnight rounded-2xl shadow-lg p-4 gap-4 max-h-[72vh] overflow-y-auto">
-      {
-        activeScreenSharer === me
-          // Dacă EU partajez, coloana = ceilalți (fără mine)
-          ? Object.keys(remotes)
-              .filter(user => user !== me)
-              .map(user => (
-                <div key={user} className="flex flex-col items-center">
-                  <div className="w-36 h-28 rounded-xl object-cover bg-black shadow flex items-center justify-center">
-                    <RemoteVideo stream={remotes[user] ?? null} />
-                  </div>
-                  <span className="text-center mt-1 font-bold text-white text-xs">{user}</span>
-                </div>
-              ))
-          // Dacă ALT user partajează, coloana = ceilalți (fără activeScreenSharer)
-          : [me, ...Object.keys(remotes)
-              .filter(user => user !== me && user !== activeScreenSharer)]
-              .map(user => (
-                <div key={user} className="flex flex-col items-center">
-                  <div className="w-36 h-28 rounded-xl object-cover bg-black shadow flex items-center justify-center">
-                    {user === me
-                      ? <LocalVideo stream={localStream} />
-                      : <RemoteVideo stream={remotes[user] ?? null} />}
-                  </div>
-                  <span className="text-center mt-1 font-bold text-white text-xs">
-                    {user === me ? `${me} (tu)` : user}
-                  </span>
-                </div>
-              ))
-      }
+      {columnUsers.map((user, idx) => (
+        <div key={user} className="flex flex-col items-center">
+          <div className="w-36 h-28 rounded-xl flex items-center justify-center">
+            <VideoTileWithSpeaking
+              stream={user === me ? localStream : remotes[user]}
+              username={user === me ? `${me} (tu)` : user}
+            />
+          </div>
+          <span className="text-center mt-1 font-bold text-white text-xs">
+            {user === me ? `${me} (tu)` : user}
+          </span>
+        </div>
+      ))}
     </div>
   );
+  
 
   // Camera grid când nimeni nu share-uiește
   const cameraGrid = (
     <div className="grid grid-cols-2 md:grid-cols-3 gap-8 w-full justify-center items-center">
-      {[me, ...Object.keys(remotes).filter(u => u !== me)].map(user => (
+      {allUsers.map((user) => (
         <div key={user} className="flex flex-col items-center">
-          <div className="w-60 h-44 rounded-2xl object-cover bg-black shadow flex items-center justify-center">
-            {user === me
-              ? <LocalVideo stream={localStream} />
-              : <RemoteVideo stream={remotes[user] ?? null} />}
+          <div className="w-60 h-44 rounded-2xl flex items-center justify-center">
+            <VideoTileWithSpeaking
+              stream={user === me ? localStream : remotes[user]}
+              username={user === me ? `${me} (tu)` : user}
+            />
           </div>
           <span className="text-center mt-1 font-bold text-white text-xs">{user === me ? `${me} (tu)` : user}</span>
         </div>
       ))}
     </div>
   );
+  
 
   return (
-      <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-midnight via-darkblue to-almost-black py-8">
-            <HeaderBar
-              onSearchChange={setSearchQuery}
-              inCall={true}
-              endCall={leaveGroup}
-            />
+    <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-midnight via-darkblue to-almost-black py-8">
+      <HeaderBar
+        onSearchChange={setSearchQuery}
+        inCall={true}
+        endCall={leaveGroup}
+      />
       <h3 className="text-3xl font-bold text-primary-blue mb-8 drop-shadow">Group Video Chat</h3>
       <div className="flex flex-row gap-10 w-full max-w-6xl justify-center">
         <div className="flex-1 bg-darkblue rounded-2xl shadow-xl p-4 flex items-center justify-center min-h-[480px] max-h-[75vh] max-w-4xl">
