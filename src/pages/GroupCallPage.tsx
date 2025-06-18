@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { API_URL, authHeaders } from "../api/signaling";
+import { API_URL, authHeaders, sendSignaling } from "../api/signaling";
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
+import { encryptRSA, exportSessionKeyB64, generateSessionKey, getPeerPublicKey } from "../api/cryptoUtils";
 
 const GroupCallPage: React.FC = () => {
   const [users, setUsers] = useState<string[]>([]);
@@ -34,14 +35,36 @@ const GroupCallPage: React.FC = () => {
   const createGroupCall = async () => {
     if (selected.length === 0) return alert("Selectează pe cineva!");
     try {
+      const sessionKey = await generateSessionKey();
+      const exported = await exportSessionKeyB64(sessionKey);
+  
       const res = await axios.post(
         `${API_URL}/calls/group`,
-        { participants: selected },
+        { participants: selected, 
+          session_key: exported
+        },
         authHeaders(),
       );
+  
       const { call_id } = res.data;
+  
+      sessionStorage.setItem(`session_key_${call_id}`, exported);
+  
+      for (const user of selected) {
+        try {
+          const pubKey = await getPeerPublicKey(user);
+          if (!pubKey) throw new Error(`🔒 Cheia publică lipsește pentru ${user}`);
+          const encrypted = await encryptRSA(pubKey, exported);
+          await sendSignaling(call_id, "session-key", encrypted, user);
+        } catch (err) {
+          console.error(`❌ Eroare la trimiterea cheii către ${user}:`, err);
+        }
+      }
+      
+  
       navigate(`/call/${call_id}`);
     } catch (err) {
+      console.error(err);
       alert("Eroare la creare apel de grup!");
     }
   };

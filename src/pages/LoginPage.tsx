@@ -1,11 +1,14 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { generateKeyPair, exportPrivateKeyPEM, exportPublicKeyPEM, downloadPEM, importPrivateKeyFromPEM } from "../api/cryptoUtils";
 
 const LoginPage: React.FC = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
+
+  const [needKey, setNeedKey] = useState(false);
 
   const login = async () => {
     try {
@@ -13,13 +16,28 @@ const LoginPage: React.FC = () => {
         username,
         password,
       });
-
       localStorage.setItem("token", res.data.access_token);
-      window.location.href = "/"; // înlocuiește navigate('/') cu redirect complet
+
+      if (!sessionStorage.getItem("privateKeyPEM")) {
+        setNeedKey(true);
+        return;
+      }
+      window.location.href = "/";
     } catch (err) {
       alert("Login failed");
     }
   };
+
+  async function handleUploadKey(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (file) {
+      const pem = await file.text();
+      sessionStorage.setItem("privateKeyPEM", pem);
+      setNeedKey(false);
+      window.location.href = "/";
+    }
+  }
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-midnight">
@@ -57,9 +75,22 @@ const LoginPage: React.FC = () => {
             Înregistrează-te
           </button>
         </div>
+  
+        {needKey && (
+          <div className="mt-6 text-center">
+            <p className="text-red-500 font-bold mb-2">Încarcă cheia privată (.pem):</p>
+            <input
+              type="file"
+              accept=".pem"
+              onChange={handleUploadKey}
+              className="mt-2"
+            />
+          </div>
+        )}
       </div>
     </div>
   );
+  
 };
 
 export default LoginPage;

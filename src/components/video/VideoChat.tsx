@@ -1,23 +1,54 @@
 import React, { useEffect, useRef, useState } from "react";
 import Peer from "simple-peer";
 import {
-  sendSignaling,
   getSignaling,
   deleteSignaling,
   joinCall,
+  authHeaders,
+  API_URL,
+  SignalingType,
+  getSignalingMerged,
+  sendSignaling,
 } from "../../api/signaling";
 import LocalVideo from "./LocalVideo";
 import RemoteVideo from "./RemoteVideo";
 import { jwtDecode } from "jwt-decode";
 import HeaderBar from "../HeaderBar";
 import CallingAvatar from "../AvatarCalling";
+import {
+  generateSessionKey,
+  exportSessionKeyB64,
+  importSessionKeyB64,
+  encryptWithSessionKey,
+  decryptWithSessionKey,
+  importPublicKeyFromPEM,
+  importPrivateKeyFromPEM,
+  encryptRSA,
+  decryptRSA,
+} from "../../api/cryptoUtils";
+import axios from "axios";
+
 
 interface Props {
   callId: string;
   isInitiator: boolean;
 }
 
+
+
+const getSignalingType = (data: any): SignalingType => {
+  if (data.type === "offer") return "offer";
+  if (data.type === "answer") return "answer";
+  return "ice";
+};
+
+
 const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
+  const [sessionKey, setSessionKey] = useState<CryptoKey | null>(null);
+  const [pendingAccept, setPendingAccept] = useState(false);
+  const [peerPublicKey, setPeerPublicKey] = useState<CryptoKey | null>(null);
+  const [myPrivateKey, setMyPrivateKey] = useState<CryptoKey | null>(null);
+  const [loadingKeys, setLoadingKeys] = useState(true);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
@@ -25,6 +56,7 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
   const [remoteScreenShare, setRemoteScreenShare] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [canAccept, setCanAccept] = useState(false);
 
   const peer = useRef<Peer.Instance | null>(null);
   const seenSignals = useRef<Set<number>>(new Set());
@@ -36,163 +68,319 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
   const parts = callId.split("_");
   const targetUser = parts.find((u) => u !== me);
 
-  // 1. Camera la început
   useEffect(() => {
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
       .then((camStream) => {
         setCameraStream(camStream);
         setLocalStream(camStream);
+        console.log("📷 Camera stream obținut:", camStream);
       })
       .catch(console.error);
   }, []);
 
-  // 2. Inițiator: offer
   useEffect(() => {
-    if (!cameraStream) return;
+    const loadKeys = async () => {
+      setLoadingKeys(true);
+      const allUsers = await axios.get(`${API_URL}/users`, authHeaders());
+      const myUser = allUsers.data.find((u: any) => u.username === me);
+      const peerUser = allUsers.data.find((u: any) => u.username === targetUser);
+
+      const pub = await importPublicKeyFromPEM(peerUser.public_key);
+      const priv = await importPrivateKeyFromPEM(sessionStorage.getItem("privateKeyPEM")!);
+
+      setPeerPublicKey(pub);
+      setMyPrivateKey(priv);
+      setLoadingKeys(false);
+    };
+    if (me && targetUser) loadKeys();
+  }, [me, targetUser]);
+
+  useEffect(() => {
+    const loadExistingKey = async () => {
+      const keyB64 = sessionStorage.getItem(`session_key_${callId}`);
+      if (keyB64) {
+        const key = await importSessionKeyB64(keyB64);
+        setSessionKey(key);
+        console.log("🔑 Inițiator: cheia de sesiune încărcată din sessionStorage.");
+      } else {
+        console.warn("⚠️ Inițiatorul nu are cheia în sessionStorage!");
+      }
+    };
+  
+    if (isInitiator && !sessionKey) {
+      loadExistingKey();
+    }
+  }, [isInitiator, callId, sessionKey]);
+  
+  
+
+  useEffect(() => {
+    if (!isInitiator && myPrivateKey && !sessionKey && !loadingKeys) {
+      const interval = setInterval(async () => {
+        try {
+          const sessionSignals = await getSignaling(callId, "session-key", me);
+          if (!sessionSignals.length) return;
+          const encryptedKey = sessionSignals[0].content;
+
+          if (!encryptedKey) {
+            console.warn("🔁 Încă aștept bucățile cheii de sesiune...");
+            return;
+          }
+  
+          console.info("🔐 Am primit cheia completă criptată:", encryptedKey.slice(0, 50) + "...");
+  
+          const decryptedB64: string = await decryptRSA(myPrivateKey, encryptedKey);
+          const key: CryptoKey = await importSessionKeyB64(decryptedB64);
+  
+          setSessionKey(key);
+          sessionStorage.setItem(`session_key_${callId}`, decryptedB64);
+          setCanAccept(true);
+  
+          console.log("✅ Cheia de sesiune a fost setată cu succes.");
+  
+          if (pendingAccept) {
+            setPendingAccept(false);
+            handleAccept();
+          }
+  
+          clearInterval(interval); 
+        } catch (err) {
+          console.error("❌ Eroare la decriptarea cheii de sesiune:", err);
+        }
+      }, 1000); 
+  
+      return () => clearInterval(interval);
+    }
+  }, [isInitiator, myPrivateKey, sessionKey, loadingKeys, me, callId, pendingAccept]);
+  
+  
+
+  useEffect(() => {
+    if (!cameraStream || !sessionKey) {
+      console.log("⏳ Astept camera sau cheia de sesiune...");
+      return;
+    }
+  
     if (isInitiator && !peer.current) {
-      joinCall(callId).catch(console.error);
+      console.log("✅ Inițiator: creez peer și trimit offer");
+  
+      joinCall(callId).catch((err) => console.error("❌ joinCall failed:", err));
+
       const p = new Peer({
         initiator: true,
         trickle: false,
         stream: cameraStream,
       });
+
+
+  
       p.on("signal", async (data: any) => {
-        await sendSignaling(
-          callId,
-          data.type === "offer" || data.type === "answer" ? data.type : "ice",
-          JSON.stringify(data),
-          targetUser,
-        );
+        try {
+          const payload = await encryptWithSessionKey(
+            sessionKey,
+            JSON.stringify(data)
+          );
+          const type: SignalingType = getSignalingType(data);
+          await sendSignaling(callId, type, payload, targetUser);
+          console.log(`📡 Semnal trimis:`, { type, data });
+        } catch (err) {
+          console.error("❌ Eroare la trimiterea semnalului:", err);
+        }
       });
-      p.on("stream", (stream: MediaStream) => setRemoteStream(stream));
+  
+      p.on("stream", (stream: MediaStream) => {
+        console.log("🎥 Stream primit de la peer.");
+        setRemoteStream(stream);
+      });
+  
+      p.on("connect", () => {
+        console.log("✅ Peer conectat");
+      });
+  
+      p.on("error", (err) => {
+        console.error("🔥 Eroare în Peer:", err);
+      });
+  
       peer.current = p;
     }
-  }, [cameraStream, isInitiator, callId, targetUser]);
+  }, [cameraStream, sessionKey, isInitiator, callId, targetUser]);
+  
 
-  // 3. Callee: accept
   const handleAccept = async () => {
-    if (!cameraStream) return;
+    if (!cameraStream || !sessionKey) {
+      setPendingAccept(true);
+      return;
+    }
+
+    console.log("🔑 Cheie AES în callee (b64):", sessionStorage.getItem(`session_key_${callId}`));
+
+  
     await joinCall(callId);
-    const offers: any[] = await getSignaling(callId, "offer", me);
-    if (!offers.length) return;
-    const offer = JSON.parse(offers[0].content);
-    const p = new Peer({
-      initiator: false,
-      trickle: false,
-      stream: cameraStream,
-    });
-    p.on("signal", async (data: any) => {
-      await sendSignaling(
-        callId,
-        data.type === "offer" || data.type === "answer" ? data.type : "ice",
-        JSON.stringify(data),
-        targetUser,
-      );
-    });
-    p.on("stream", (stream: MediaStream) => setRemoteStream(stream));
-    peer.current = p;
+
+    const offerSignals = await getSignaling(callId, "offer", me);
+    if (!offerSignals.length) return;
+    const offerRaw = offerSignals[0].content;
+    
+    console.log("📦 Oferta criptată (primii 100 chars):", offerRaw?.slice(0, 100) + "...");
+    console.log("🔑 Cheia AES (base64):", await exportSessionKeyB64(sessionKey!));
+    console.log("📏 Lungime oferta criptată:", offerRaw?.length);
+  
     try {
+      const decrypted = await decryptWithSessionKey(sessionKey, offerRaw);
+      console.log("🔓 Decrypted offer string:", decrypted);
+  
+      let offer;
+      try {
+        offer = JSON.parse(decrypted);
+      } catch (jsonErr) {
+        console.error("❌ JSON.parse failed:", jsonErr);
+        console.log("🔐 Cheia de sesiune:", sessionKey);
+        console.log("📦 Oferta criptată primită:", offerRaw);
+        console.log("🔓 Decrypted (INVALID JSON):", decrypted);
+        return;
+      }
+  
+      const p = new Peer({
+        initiator: false,
+        trickle: false,
+        stream: cameraStream,
+      });
+  
+      p.on("signal", async (data: any) => {
+        console.log("📤 Signal generat:", data);
+        const payload = await encryptWithSessionKey(sessionKey, JSON.stringify(data));
+        const type: SignalingType = getSignalingType(data);
+        await sendSignaling(callId, type, payload, targetUser);
+      });
+      
+  
+      p.on("stream", (stream: MediaStream) => setRemoteStream(stream));
+      peer.current = p;
       p.signal(offer);
       appliedOffer.current = true;
       setAccepted(true);
+  
     } catch (err) {
-      console.warn("Eroare la accept:", err);
+      console.error("❌ Eroare la decriptarea ofertei:", err);
+      console.log("🔐 Cheia AES (CryptoKey):", sessionKey);
+      console.log("📦 Oferta criptată completă:", offerRaw);
+
     }
   };
+  
 
-  // 4. Poll signaling + screen-share flag
   useEffect(() => {
     const iv = setInterval(async () => {
-      if (!cameraStream) return;
+      if (!cameraStream || !sessionKey) return;
       if (!isInitiator && !accepted) return;
-      const offers: any[] = await getSignaling(callId, "offer", me);
-      const answers: any[] = await getSignaling(callId, "answer", me);
-      const ices: any[] = await getSignaling(callId, "ice", me);
-      const ends = await getSignaling(callId, "end", me);
-      const screenShares = await getSignaling(callId, "screen-share", me);
-
+  
+      const [offerSignals, answerSignals, iceSignals, ends, screenShares] = await Promise.all([
+        getSignaling(callId, "offer", me),
+        getSignaling(callId, "answer", me),
+        getSignaling(callId, "ice", me),
+        getSignaling(callId, "end", me),
+        getSignaling(callId, "screen-share", me),
+      ]);
+  
       if (ends.length) {
         alert("Celălalt utilizator a închis apelul.");
         await deleteSignaling(callId);
         window.location.href = "/";
+        return;
       }
-
-      offers.forEach((sig: any) => {
-        if (seenSignals.current.has(sig.id)) return;
-        seenSignals.current.add(sig.id);
-        if (!isInitiator && !appliedOffer.current) {
+  
+      // OFFER
+      if (
+        !isInitiator &&
+        !appliedOffer.current &&
+        offerSignals.length > 0 &&
+        offerSignals[0].content
+      ) {
+        try {
+          const decrypted = await decryptWithSessionKey(sessionKey, offerSignals[0].content);
+          const offer = JSON.parse(decrypted);
+  
           const p = new Peer({
             initiator: false,
             trickle: false,
             stream: cameraStream,
             config: { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] },
           });
+  
           p.on("signal", async (data: any) => {
-            await sendSignaling(
-              callId,
-              data.type === "offer" || data.type === "answer"
-                ? data.type
-                : "ice",
-              JSON.stringify(data),
-              targetUser,
-            );
+            const payload = await encryptWithSessionKey(sessionKey, JSON.stringify(data));
+            const type: SignalingType = getSignalingType(data);
+            await sendSignaling(callId, type, payload, targetUser);
           });
+  
           p.on("stream", (stream: MediaStream) => setRemoteStream(stream));
           peer.current = p;
-          p.signal(JSON.parse(sig.content));
+          p.signal(offer);
           appliedOffer.current = true;
+        } catch (err) {
+          console.error("❌ Eroare la procesarea offer-ului:", err);
         }
-      });
-      answers.forEach((sig: any) => {
-        if (seenSignals.current.has(sig.id)) return;
-        seenSignals.current.add(sig.id);
-        if (isInitiator && peer.current && !appliedAnswer.current) {
-          peer.current.signal(JSON.parse(sig.content));
+      }
+  
+      // ANSWER
+      if (
+        isInitiator &&
+        !appliedAnswer.current &&
+        answerSignals.length > 0 &&
+        answerSignals[0].content &&
+        peer.current
+      ) {
+        try {
+          const decrypted = await decryptWithSessionKey(sessionKey, answerSignals[0].content);
+          const answer = JSON.parse(decrypted);
+          peer.current.signal(answer);
           appliedAnswer.current = true;
           setAccepted(true);
+        } catch (err) {
+          console.error("❌ Eroare la procesarea answer-ului:", err);
         }
-      });
-      ices.forEach((sig: any) => {
-        if (seenSignals.current.has(sig.id)) return;
-        seenSignals.current.add(sig.id);
-        if (peer.current) {
-          peer.current.signal(JSON.parse(sig.content));
+      }
+  
+      // ICE
+      if (peer.current && iceSignals.length > 0) {
+        for (const iceSignal of iceSignals) {
+          try {
+            const decrypted = await decryptWithSessionKey(sessionKey, iceSignal.content);
+            const ice = JSON.parse(decrypted);
+            peer.current.signal(ice);
+          } catch (err) {
+            console.error("❌ Eroare la procesarea ICE:", err);
+          }
         }
-      });
-
-      // Prinde screen-share de la peer
-      screenShares.forEach((sig: any) => {
+      }
+  
+      // SCREEN SHARE
+      for (const sig of screenShares) {
         if (sig.content === "start") setRemoteScreenShare(true);
         if (sig.content === "stop") setRemoteScreenShare(false);
-      });
+      }
     }, 1500);
+  
     return () => clearInterval(iv);
-  }, [cameraStream, accepted, callId, isInitiator, targetUser]);
+  }, [cameraStream, accepted, callId, isInitiator, targetUser, sessionKey]);
+  
 
-  // Share screen logic
+  
   const handleShareScreen = async () => {
     try {
-      const scrStream = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
-      });
+      const scrStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
       setScreenStream(scrStream);
       await sendSignaling(callId, "screen-share", "start", targetUser);
 
       const screenTrack = scrStream.getVideoTracks()[0];
       if (peer.current) {
-        const videoSender = peer.current.streams[0]
-          .getTracks()
-          .find((t: MediaStreamTrack) => t.kind === "video");
+        const videoSender = peer.current.streams[0].getTracks().find((t) => t.kind === "video");
         if (videoSender) {
-          peer.current.replaceTrack(
-            videoSender,
-            screenTrack,
-            peer.current.streams[0],
-          );
+          peer.current.replaceTrack(videoSender, screenTrack, peer.current.streams[0]);
         }
       }
-      scrStream.getVideoTracks()[0].onended = () => handleStopShareScreen();
+      scrStream.getVideoTracks()[0].onended = handleStopShareScreen;
     } catch (err) {
       alert("Nu s-a putut partaja ecranul!");
       setScreenStream(null);
@@ -205,14 +393,12 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
       await sendSignaling(callId, "screen-share", "stop", targetUser);
 
       if (peer.current && cameraStream) {
-        const videoSender = peer.current.streams[0]
-          .getTracks()
-          .find((t: MediaStreamTrack) => t.kind === "video");
+        const videoSender = peer.current.streams[0].getTracks().find((t) => t.kind === "video");
         if (videoSender) {
           peer.current.replaceTrack(
             videoSender,
             cameraStream.getVideoTracks()[0],
-            peer.current.streams[0],
+            peer.current.streams[0]
           );
         }
       }
@@ -225,6 +411,7 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
     await deleteSignaling(callId);
     window.location.href = "/";
   };
+
   const endCall = async () => {
     peer.current?.destroy();
     cameraStream?.getTracks().forEach((t) => t.stop());
@@ -232,8 +419,6 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
     await sendSignaling(callId, "end", "", targetUser);
     window.location.href = "/";
   };
-
-  // ================= LAYOUT =====================
 
   const isLocalScreenSharing = !!screenStream;
   const isRemoteScreenSharing = !!remoteScreenShare;
@@ -376,12 +561,16 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
       )}
       {!isInitiator && !accepted && (
         <div className="flex gap-4 mt-2">
-          <button
+          {canAccept ? (
+            <button
             className="px-6 py-2 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold shadow transition"
             onClick={handleAccept}
           >
             Acceptă
           </button>
+          ) : (
+            <p>🔐 Aștept cheia de sesiune...</p>
+          )}
           <button
             className="px-6 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold shadow transition"
             onClick={handleCancel}

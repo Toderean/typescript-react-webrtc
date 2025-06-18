@@ -2,9 +2,16 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { API_URL } from "../api/signaling";
+import {
+  generateKeyPair,
+  exportPrivateKeyPEM,
+  exportPublicKeyPEM,
+  downloadPEM,
+} from "../api/cryptoUtils";
 
 const RegisterPage: React.FC = () => {
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState(""); 
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -15,22 +22,40 @@ const RegisterPage: React.FC = () => {
     e.preventDefault();
     setError(null);
 
-    if (!username.trim() || !password || !password2) {
+    if (!username.trim() || !email.trim() || !password || !password2) {
       setError("Completează toate câmpurile!");
+      return;
+    }
+    if (!/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
+      setError("Email invalid!");
       return;
     }
     if (password !== password2) {
       setError("Parolele nu coincid!");
       return;
     }
+
     setLoading(true);
     try {
-      await axios.post(`${API_URL}/auth/register`, { username, password });
-      const loginResp = await axios.post(`${API_URL}/auth/login`, {
+      const { publicKey, privateKey } = await generateKeyPair();
+      const publicKeyPEM = await exportPublicKeyPEM(publicKey);
+      const privateKeyPEM = await exportPrivateKeyPEM(privateKey);
+
+      await axios.post(`${API_URL}/auth/register`, {
         username,
+        email,
         password,
+        public_key: publicKeyPEM,
       });
+
+      const loginResp = await axios.post(`${API_URL}/auth/login`, { username, password });
       localStorage.setItem("token", loginResp.data.access_token);
+
+      downloadPEM(privateKeyPEM, "private_key.pem");
+      alert("Cheia privată a fost generată. Salvează fișierul cu grijă! Nu o vei mai putea descărca ulterior.");
+
+      sessionStorage.setItem("privateKeyPEM", privateKeyPEM);
+
       navigate("/");
     } catch (err: any) {
       setError(
@@ -56,6 +81,14 @@ const RegisterPage: React.FC = () => {
             value={username}
             autoComplete="username"
             onChange={(e) => setUsername(e.target.value)}
+          />
+          <input
+            type="email"
+            className="rounded-lg px-4 py-2 bg-midnight text-white focus:outline-none focus:ring-2 focus:ring-primary-blue"
+            placeholder="Email"
+            value={email}
+            autoComplete="email"
+            onChange={(e) => setEmail(e.target.value)}
           />
           <input
             type="password"
