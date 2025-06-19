@@ -27,12 +27,21 @@ import {
   decryptRSA,
 } from "../../api/cryptoUtils";
 import axios from "axios";
+import { MdMic, MdMicOff, MdVideocam, MdVideocamOff, MdScreenShare, MdCallEnd } from "react-icons/md";
+
 
 
 interface Props {
   callId: string;
   isInitiator: boolean;
 }
+
+const MicIcon = MdMic as React.FC;
+const MicOffIcon = MdMicOff as React.FC;
+const VideoIcon = MdVideocam as React.FC;
+const VideoOffIcon = MdVideocamOff as React.FC;
+const ShareIcon = MdScreenShare as React.FC;
+const EndCallIcon = MdCallEnd as React.FC;
 
 
 
@@ -44,6 +53,8 @@ const getSignalingType = (data: any): SignalingType => {
 
 
 const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
+  const [isMuted, setIsMuted] = useState(false);
+  const [isCameraOff, setIsCameraOff] = useState(false);
   const [sessionKey, setSessionKey] = useState<CryptoKey | null>(null);
   const [pendingAccept, setPendingAccept] = useState(false);
   const [peerPublicKey, setPeerPublicKey] = useState<CryptoKey | null>(null);
@@ -423,6 +434,10 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
   };
 
   const handleCancel = async () => {
+    peer.current?.destroy();
+    cameraStream?.getTracks().forEach((t) => t.stop());
+    screenStream?.getTracks().forEach((t) => t.stop());
+    await sendSignaling(callId, "end", "", targetUser);
     await deleteSignaling(callId);
     window.location.href = "/";
   };
@@ -458,139 +473,294 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
   // ------ layout pentru "cel care partajeaza"
   if (isLocalScreenSharing) {
     return (
-      <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-midnight via-darkblue to-almost-black py-8">
-        <h3 className="text-3xl font-bold text-primary-blue mb-8 drop-shadow">
+      <div className="min-h-screen flex flex-col bg-gradient-to-br from-midnight via-darkblue to-almost-black py-8 px-4">
+        <h3 className="text-3xl font-bold text-primary-blue mb-6 text-center">
           WebRTC Video Chat
         </h3>
-        <div className="flex flex-row w-full max-w-6xl items-center justify-center mb-10 gap-10">
-          <div className="flex-1 bg-darkblue rounded-2xl shadow-xl p-2 flex items-center justify-center min-h-[400px]">
+    
+        <div className="flex flex-col lg:flex-row gap-4 w-full h-[80vh]">
+          {/* Screen Share Left */}
+          <div className="flex-1 bg-black rounded-2xl overflow-hidden shadow-lg flex items-center justify-center">
             <video
               autoPlay
               playsInline
               muted
-              className="w-full h-full rounded-2xl"
+              className="w-full h-full object-contain"
               ref={(el) => {
                 if (el && screenStream) el.srcObject = screenStream;
               }}
             />
           </div>
-          <div className="flex flex-col gap-6 min-w-[300px]">
-            <div className="bg-midnight rounded-2xl shadow-xl p-2 flex flex-col items-center">
+    
+          {/* Camera feeds Right */}
+          <div className="flex flex-col gap-4 w-full lg:w-[420px]">
+            {/* Local */}
+            <div className="flex-1 bg-darkblue rounded-2xl shadow-lg p-2 flex flex-col items-center">
               <span className="mb-2 text-accent-blue font-semibold">Tu</span>
               <LocalVideo stream={cameraStream} />
             </div>
-            <div className="bg-midnight rounded-2xl shadow-xl p-2 flex flex-col items-center">
-              <span className="mb-2 text-primary-blue font-semibold">
-                {targetUser}
-              </span>
-              <RemoteVideo stream={remoteStream} />
+    
+            {/* Remote */}
+            <div className="flex-1 bg-midnight rounded-2xl shadow-lg p-2 flex flex-col items-center">
+              <span className="mb-2 text-primary-blue font-semibold">{targetUser}</span>
+              {remoteStream ? (
+                <RemoteVideo stream={remoteStream} />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-white text-lg">
+                  Aștept fluxul video...
+                </div>
+              )}
             </div>
           </div>
         </div>
-        <div className="flex gap-4 mt-2">
+    
+        {/* Controls */}
+        <div className="mt-6 flex justify-center gap-4">
           <button
-            className="px-8 py-2 rounded-xl bg-gradient-to-r from-primary-blue to-accent-blue text-white font-bold shadow hover:from-accent-blue hover:to-primary-blue transition"
-            onClick={endCall}
+            onClick={() => {
+              const audioTrack = peer.current?.streams[0]
+                ?.getAudioTracks()
+                ?.find((t) => t.kind === "audio");
+            
+              if (audioTrack) {
+                audioTrack.enabled = !audioTrack.enabled;
+                setIsMuted(!audioTrack.enabled);
+              }
+            }}
+            
+            className={`p-3 rounded-full text-white text-xl shadow transition ${
+              isMuted ? "bg-yellow-600 hover:bg-yellow-700" : "bg-primary-blue hover:bg-accent-blue"
+            }`}
           >
-            Închide apelul
+            {isMuted ? <MicOffIcon /> : <MicIcon />}
           </button>
+    
           <button
-            className="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold shadow transition"
-            onClick={handleStopShareScreen}
+            onClick={() => {
+              const video = cameraStream?.getVideoTracks()[0];
+              if (video) {
+                video.enabled = !video.enabled;
+                setIsCameraOff(!video.enabled);
+              }
+            }}
+            className={`p-3 rounded-full text-white text-xl shadow transition ${
+              isCameraOff ? "bg-yellow-600 hover:bg-yellow-700" : "bg-primary-blue hover:bg-accent-blue"
+            }`}
           >
-            Oprește partajarea
+            {isCameraOff ? <VideoOffIcon /> : <VideoIcon />}
+          </button>
+    
+          <button
+            onClick={handleStopShareScreen}
+            className="p-3 rounded-full bg-red-600 hover:bg-red-700 text-white text-xl shadow"
+          >
+            <ShareIcon />
+          </button>
+    
+          <button
+            onClick={endCall}
+            className="p-3 rounded-full bg-red-700 hover:bg-red-800 text-white text-xl shadow"
+          >
+            <EndCallIcon />
           </button>
         </div>
       </div>
     );
+    
   }
 
   // ------ layout pentru "cel care priveste" (remote screen share activ)
   if (isRemoteScreenSharing) {
     return (
-      <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-midnight via-darkblue to-almost-black py-8">
-        <h3 className="text-3xl font-bold text-primary-blue mb-8 drop-shadow">
+      <div className="min-h-screen flex flex-col bg-gradient-to-br from-midnight via-darkblue to-almost-black py-8 px-4">
+        <h3 className="text-3xl font-bold text-primary-blue mb-6 text-center">
           WebRTC Video Chat
         </h3>
-        <div
-          className="relative w-full flex justify-center items-center mb-10"
-          style={{ minHeight: 500 }}
-        >
-          <div className="max-w-[900px] max-h-[65vh] w-full flex justify-center">
+    
+        <div className="flex flex-col lg:flex-row gap-4 w-full h-[80vh]">
+          {/* Screen Share from remote */}
+          <div className="flex-1 bg-black rounded-2xl overflow-hidden shadow-lg flex items-center justify-center">
             <RemoteVideo stream={remoteStream} />
           </div>
-          <div className="absolute bottom-6 right-8 w-56 h-40 bg-midnight rounded-xl shadow-lg flex items-center justify-center border-2 border-accent-blue">
-            <LocalVideo stream={cameraStream} />
+    
+          {/* Camera feeds right */}
+          <div className="flex flex-col gap-4 w-full lg:w-[420px]">
+            {/* Local camera */}
+            <div className="flex-1 bg-darkblue rounded-2xl shadow-lg p-2 flex flex-col items-center">
+              <span className="mb-2 text-accent-blue font-semibold">Tu</span>
+              <LocalVideo stream={cameraStream} />
+            </div>
+    
+            {/* Numele celuilalt */}
+            <div className="flex-1 bg-midnight rounded-2xl shadow-lg p-2 flex flex-col items-center justify-center">
+              <span className="text-primary-blue font-semibold">{targetUser}</span>
+              <span className="text-white mt-2 text-sm opacity-70">Partajează ecranul</span>
+            </div>
           </div>
         </div>
-        <div className="flex gap-4 mt-2">
+    
+        {/* Butoane control */}
+        <div className="mt-6 flex justify-center gap-4">
           <button
-            className="px-8 py-2 rounded-xl bg-gradient-to-r from-primary-blue to-accent-blue text-white font-bold shadow hover:from-accent-blue hover:to-primary-blue transition"
-            onClick={endCall}
+            onClick={() => {
+              const audioTrack = peer.current?.streams[0]
+                ?.getAudioTracks()
+                ?.find((t) => t.kind === "audio");
+            
+              if (audioTrack) {
+                audioTrack.enabled = !audioTrack.enabled;
+                setIsMuted(!audioTrack.enabled);
+              }
+            }}
+            
+            className={`p-3 rounded-full text-white text-xl shadow transition ${
+              isMuted ? "bg-yellow-600 hover:bg-yellow-700" : "bg-primary-blue hover:bg-accent-blue"
+            }`}
           >
-            Închide apelul
+            {isMuted ? <MicOffIcon /> : <MicIcon />}
+          </button>
+    
+          <button
+            onClick={() => {
+              const videoTrack = peer.current?.streams[0]
+                ?.getVideoTracks()
+                ?.find((t) => t.kind === "video");
+            
+              if (videoTrack) {
+                videoTrack.enabled = !videoTrack.enabled;
+                setIsCameraOff(!videoTrack.enabled);
+              }
+            }}
+            
+            className={`p-3 rounded-full text-white text-xl shadow transition ${
+              isCameraOff ? "bg-yellow-600 hover:bg-yellow-700" : "bg-primary-blue hover:bg-accent-blue"
+            }`}
+          >
+            {isCameraOff ? <VideoOffIcon /> : <VideoIcon />}
+          </button>
+    
+          <button
+            onClick={endCall}
+            className="p-3 rounded-full bg-red-700 hover:bg-red-800 text-white text-xl shadow"
+          >
+            <EndCallIcon />
           </button>
         </div>
       </div>
     );
+    
   }
 
   // ------ Layout normal, fără partajare
   return (
-    <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-midnight via-darkblue to-almost-black py-8">
-      <h3 className="text-3xl font-bold text-primary-blue mb-8 drop-shadow">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-midnight via-darkblue to-almost-black py-8 px-4">
+      <h3 className="text-3xl font-bold text-primary-blue mb-8 drop-shadow text-center">
         WebRTC Video Chat
       </h3>
-      <div className="flex flex-col md:flex-row gap-10 w-full max-w-3xl items-center justify-center mb-10">
-        <div className="bg-darkblue rounded-2xl shadow-xl p-4 flex flex-col items-center w-full max-w-xs">
+  
+      <div className="flex flex-col md:flex-row w-full h-[75vh] gap-4">
+        {/* Local user */}
+        <div className="w-full md:w-1/2 flex flex-col items-center justify-center relative bg-darkblue rounded-2xl shadow-lg p-4">
           <span className="mb-2 text-accent-blue font-semibold">Tu</span>
-          <LocalVideo stream={cameraStream} />
+          {cameraStream?.getVideoTracks()[0]?.enabled ? (
+            <LocalVideo stream={cameraStream} />
+          ) : (
+            <div className="w-64 h-48 bg-gray-700 rounded-full flex items-center justify-center text-white text-6xl font-bold shadow-xl">
+              {me[0]?.toUpperCase() ?? "?"}
+            </div>
+          )}
+  
+          <div className="absolute bottom-6 flex gap-3">
+            <button
+              onClick={() => {
+                const audioTrack = peer.current?.streams[0]
+                  ?.getAudioTracks()
+                  ?.find((t) => t.kind === "audio");
+              
+                if (audioTrack) {
+                  audioTrack.enabled = !audioTrack.enabled;
+                  setIsMuted(!audioTrack.enabled);
+                }
+              }}
+              
+              className={`p-3 rounded-full text-white text-xl shadow transition ${
+                isMuted ? "bg-yellow-600 hover:bg-yellow-700" : "bg-primary-blue hover:bg-accent-blue"
+              }`}
+            >
+              {isMuted ? <MicOffIcon /> : <MicIcon />}
+            </button>
+  
+            <button
+              onClick={() => {
+                const videoTrack = peer.current?.streams[0]
+                  ?.getVideoTracks()
+                  ?.find((t) => t.kind === "video");
+              
+                if (videoTrack) {
+                  videoTrack.enabled = !videoTrack.enabled;
+                  setIsCameraOff(!videoTrack.enabled);
+                }
+              }}              
+              className={`p-3 rounded-full text-white text-xl shadow transition ${
+                isCameraOff ? "bg-yellow-600 hover:bg-yellow-700" : "bg-primary-blue hover:bg-accent-blue"
+              }`}
+            >
+              {isCameraOff ? <VideoOffIcon /> : <VideoIcon />}
+            </button>
+  
+            <button
+              onClick={handleShareScreen}
+              className="p-3 rounded-full bg-primary-blue hover:bg-accent-blue text-white text-xl shadow"
+            >
+              <ShareIcon />
+            </button>
+  
+            <button
+              onClick={endCall}
+              className="p-3 rounded-full bg-red-600 hover:bg-red-700 text-white text-xl shadow"
+            >
+              <EndCallIcon />
+            </button>
+          </div>
         </div>
-        <div className="bg-midnight rounded-2xl shadow-xl p-4 flex flex-col items-center w-full max-w-xs">
-          <span className="mb-2 text-primary-blue font-semibold">
-            {targetUser}
-          </span>
-          <RemoteVideo stream={remoteStream} />
+  
+        {/* Remote user */}
+        <div className="w-full md:w-1/2 flex flex-col items-center justify-center bg-midnight rounded-2xl shadow-lg p-4">
+          <span className="mb-2 text-primary-blue font-semibold">{targetUser}</span>
+          {remoteStream ? (
+            <RemoteVideo stream={remoteStream} />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-white text-lg">
+              Aștept fluxul video...
+            </div>
+          )}
+  
+          {/* Accept/Refuz (doar la callee, dacă nu a acceptat încă) */}
+          {!isInitiator && !accepted && (
+            <div className="mt-6 flex gap-4">
+              {canAccept ? (
+                <button
+                  className="px-6 py-2 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold shadow transition"
+                  onClick={handleAccept}
+                >
+                  Acceptă
+                </button>
+              ) : (
+                <p className="text-white">🔐 Aștept cheia de sesiune...</p>
+              )}
+              <button
+                className="px-6 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold shadow transition"
+                onClick={handleCancel}
+              >
+                Refuză
+              </button>
+            </div>
+          )}
         </div>
       </div>
-      {(isInitiator || accepted) && (
-        <div className="flex gap-4 mt-2">
-          <button
-            className="px-8 py-2 rounded-xl bg-gradient-to-r from-primary-blue to-accent-blue text-white font-bold shadow hover:from-accent-blue hover:to-primary-blue transition"
-            onClick={endCall}
-          >
-            Închide apelul
-          </button>
-          <button
-            className="px-5 py-2 rounded-xl bg-primary-blue hover:bg-accent-blue text-white font-bold shadow transition"
-            onClick={handleShareScreen}
-          >
-            Partajează ecranul
-          </button>
-        </div>
-      )}
-      {!isInitiator && !accepted && (
-        <div className="flex gap-4 mt-2">
-          {canAccept ? (
-            <button
-            className="px-6 py-2 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold shadow transition"
-            onClick={handleAccept}
-          >
-            Acceptă
-          </button>
-          ) : (
-            <p>🔐 Aștept cheia de sesiune...</p>
-          )}
-          <button
-            className="px-6 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold shadow transition"
-            onClick={handleCancel}
-          >
-            Refuză
-          </button>
-        </div>
-      )}
     </div>
   );
+  
 };
 
 export default VideoChat;

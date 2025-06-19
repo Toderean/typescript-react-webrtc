@@ -9,14 +9,8 @@ const RemoteVideo = ({ stream }: { stream: MediaStream | null }) => {
       return;
     }
 
-    console.log("✅ Remote stream tracks:", stream.getTracks());
-    console.log("✅ Remote video tracks:", stream.getVideoTracks());
-
     if (ref.current) {
-      console.log("✅ Setting remote video stream");
       ref.current.srcObject = stream;
-    } else {
-      console.warn("⚠️ Remote video ref not ready");
     }
   }, [stream]);
 
@@ -26,7 +20,7 @@ const RemoteVideo = ({ stream }: { stream: MediaStream | null }) => {
       autoPlay
       playsInline
       muted={false}
-      style={{ width: "100%", backgroundColor: "black" }}
+      className="w-full h-full object-cover rounded-2xl shadow-xl bg-black"
     />
   );
 };

@@ -18,8 +18,8 @@ const LocalVideo: React.FC<Props> = ({ stream }) => {
       ref={ref}
       autoPlay
       playsInline
-      muted={false}
-      className="w-full h-56 md:h-64 lg:h-72 object-cover rounded-2xl border-4 border-accent-blue shadow-xl bg-black"
+      muted
+      className="w-full h-full object-cover rounded-2xl border-4 border-accent-blue shadow-xl bg-black"
       style={{ background: "#0b1121" }}
     />
   );

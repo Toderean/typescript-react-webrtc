@@ -85,14 +85,14 @@ const CallSelectPage: React.FC = () => {
   }, [searchQuery]);
 
   const filteredUsers = searchQuery.trim()
-  ? users.filter((u) => u.toLowerCase().includes(searchQuery.toLowerCase()))
-  : users;
+    ? users.filter((u) => u.toLowerCase().includes(searchQuery.toLowerCase()))
+    : users;
 
-const filteredGroups = searchQuery.trim()
-  ? groupResults.filter((g) =>
-      g.name.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-  : groupResults;
+  const filteredGroups = searchQuery.trim()
+    ? groupResults.filter((g) =>
+        g.name.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : groupResults;
 
 
   
