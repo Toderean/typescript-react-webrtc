@@ -8,6 +8,8 @@ import {
   sendSignaling,
   getPublicKey,
   getSessionKey,
+  API_URL,
+  authHeaders,
 } from "../../api/signaling";
 import { jwtDecode } from "jwt-decode";
 import HeaderBar from "../HeaderBar";
@@ -20,6 +22,7 @@ import {
   importPrivateKeyFromPEM,
   decryptRSA,
 } from "../../api/cryptoUtils";
+import axios from "axios";
 
 interface Props {
   callId: string;
@@ -46,11 +49,25 @@ const VideoChatGroup: React.FC<Props> = ({ callId }) => {
     navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(setLocalStream);
   }, []);
 
+  async function updateStatus(status: string) {
+    try {
+      await axios.post(`${API_URL}/users/status`, { status }, authHeaders());
+    } catch (err) {
+      console.error("❌ Eroare la actualizarea statusului:", err);
+    }
+  }
+
   useEffect(() => {
     const intv = setInterval(() => {
-      getParticipants(callId).then((res) => {
-        setParticipants(res.data.map((p: any) => p.user_id));
+      getParticipants(callId).then(async (res) => {
+        const userIds = res.data.map((p: any) => p.user_id);
+        setParticipants(userIds);
+      
+        if (userIds.includes(me)) {
+          await updateStatus("in_call");
+        }
       });
+      
     }, 2000);
     return () => clearInterval(intv);
   }, [callId]);
@@ -237,7 +254,6 @@ const VideoChatGroup: React.FC<Props> = ({ callId }) => {
 
   return (
     <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-midnight via-darkblue to-almost-black py-8">
-      <HeaderBar onSearchChange={setSearchQuery} inCall={true} endCall={leaveGroup} />
       <h3 className="text-3xl font-bold text-primary-blue mb-8 drop-shadow">Group Video Chat</h3>
       <div className="flex flex-row gap-10 w-full max-w-6xl justify-center">
         <div className="flex-1 bg-darkblue rounded-2xl shadow-xl p-4 flex items-center justify-center min-h-[480px] max-h-[75vh] max-w-4xl">

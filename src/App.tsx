@@ -13,6 +13,19 @@ import CallSelectPage from "./pages/CallSelectPage";
 import GroupCallPage from "./pages/GroupCallPage";
 import InvitationsPoller from "./api/InvitationsBanner";
 import RegisterPage from "./pages/RegisterPage";
+import GroupManager from "./pages/GroupManager";
+import GroupListPage from "./pages/GroupListPage";
+import axios from "axios";
+import { API_URL, authHeaders } from "./api/signaling";
+import EmailConfirmationPage from "./pages/EmailConfirmationPage";
+
+async function updateStatus(status: string) {
+  try {
+    await axios.post(`${API_URL}/users/status`, { status }, authHeaders());
+  } catch (err) {
+    console.error("Eroare la actualizarea statusului:", err);
+  }
+}
 
 const pageVariants = {
   initial: { opacity: 0, y: 36 },
@@ -21,6 +34,18 @@ const pageVariants = {
 };
 
 const AnimatedRoutes: React.FC = () => {
+  React.useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return; 
+    updateStatus("available");
+    window.addEventListener("beforeunload", () => {
+      navigator.sendBeacon(
+        `${API_URL}/users/status`,
+        JSON.stringify({ status: "offline" })
+      );
+    });
+  }, []);
+
   const token = localStorage.getItem("token");
   const location = useLocation();
 
@@ -57,6 +82,25 @@ const AnimatedRoutes: React.FC = () => {
             </motion.div>
           }
         />
+        <Route
+            path="/my-groups"
+            element={
+              token ? (
+                <motion.div
+                  variants={pageVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  transition={{ duration: 0.38, ease: "easeInOut" }}
+                  className="min-h-screen"
+                >
+                  <GroupListPage />
+                </motion.div>
+              ) : (
+                <Navigate to="/login" />
+              )
+            }
+          />
         <Route
           path="/"
           element={
@@ -114,6 +158,39 @@ const AnimatedRoutes: React.FC = () => {
             )
           }
         />
+        <Route
+          path="/groups"
+          element={
+            token ? (
+              <motion.div
+                variants={pageVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                transition={{ duration: 0.38, ease: "easeInOut" }}
+                className="min-h-screen"
+              >
+                <GroupManager />
+              </motion.div>
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+        <Route
+            path="/confirm-email/:token"
+            element={
+              <motion.div
+                variants={pageVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                transition={{ duration: 0.3 }}
+              >
+                <EmailConfirmationPage />
+              </motion.div>
+            }
+          />
       </Routes>
     </AnimatePresence>
   );

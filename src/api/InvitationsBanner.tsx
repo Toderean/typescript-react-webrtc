@@ -24,7 +24,6 @@ const InvitationsBanner: React.FC = () => {
           `${API_URL}/calls/invitations`,
           authHeaders(),
         );
-        // Caută doar apeluri de grup, ignoră cele refuzate
         const calls = res.data.filter(
           (inv: any) =>
             inv.call_id.startsWith("group_") &&
@@ -42,16 +41,18 @@ const InvitationsBanner: React.FC = () => {
   }, [token, navigate, dismissed]);
 
   const handleAccept = () => {
+    const token = localStorage.getItem("token");
+    if (!token) return null;
     if (invitation) {
       navigate(`/call/${invitation.call_id}`);
-      setInvitation(null); // ascunde banner-ul
+      setInvitation(null); 
     }
   };
 
   const handleDismiss = () => {
     if (invitation) {
       setDismissed([...dismissed, invitation.call_id]);
-      setInvitation(null); // ascunde banner-ul
+      setInvitation(null);
     }
   };
 

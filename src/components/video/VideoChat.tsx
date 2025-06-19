@@ -79,6 +79,14 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
       .catch(console.error);
   }, []);
 
+  async function updateStatus(status: string) {
+    try {
+      await axios.post(`${API_URL}/users/status`, { status }, authHeaders());
+    } catch (err) {
+      console.error("❌ Eroare la actualizarea statusului:", err);
+    }
+  }
+
   useEffect(() => {
     const loadKeys = async () => {
       setLoadingKeys(true);
@@ -161,10 +169,10 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
       console.log("⏳ Astept camera sau cheia de sesiune...");
       return;
     }
-  
+    const setupInitiator = async () => {
     if (isInitiator && !peer.current) {
+      await updateStatus("in_call");
       console.log("✅ Inițiator: creez peer și trimit offer");
-  
       joinCall(callId).catch((err) => console.error("❌ joinCall failed:", err));
 
       const p = new Peer({
@@ -204,6 +212,10 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
   
       peer.current = p;
     }
+  };
+  if (cameraStream && sessionKey) {
+    setupInitiator(); 
+  }
   }, [cameraStream, sessionKey, isInitiator, callId, targetUser]);
   
 
@@ -217,6 +229,9 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
 
   
     await joinCall(callId);
+
+    await updateStatus("in_call");
+
 
     const offerSignals = await getSignaling(callId, "offer", me);
     if (!offerSignals.length) return;
@@ -523,11 +538,6 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
   // ------ Layout normal, fără partajare
   return (
     <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-midnight via-darkblue to-almost-black py-8">
-      <HeaderBar
-        onSearchChange={setSearchQuery}
-        inCall={true}
-        endCall={endCall}
-      />
       <h3 className="text-3xl font-bold text-primary-blue mb-8 drop-shadow">
         WebRTC Video Chat
       </h3>

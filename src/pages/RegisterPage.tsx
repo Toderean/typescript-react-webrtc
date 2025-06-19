@@ -11,11 +11,12 @@ import {
 
 const RegisterPage: React.FC = () => {
   const [username, setUsername] = useState("");
-  const [email, setEmail] = useState(""); 
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -48,20 +49,22 @@ const RegisterPage: React.FC = () => {
         public_key: publicKeyPEM,
       });
 
-      const loginResp = await axios.post(`${API_URL}/auth/login`, { username, password });
-      localStorage.setItem("token", loginResp.data.access_token);
-
       downloadPEM(privateKeyPEM, "private_key.pem");
-      alert("Cheia privată a fost generată. Salvează fișierul cu grijă! Nu o vei mai putea descărca ulterior.");
+      alert(
+        "Cheia privată a fost generată. Salvează fișierul cu grijă! Nu o vei mai putea descărca ulterior."
+      );
 
-      sessionStorage.setItem("privateKeyPEM", privateKeyPEM);
+      localStorage.setItem("privateKeyPEM", privateKeyPEM);
+      localStorage.setItem("registeredUsername", username);
+      localStorage.setItem("registeredPassword", password);
 
-      navigate("/");
+      // ✅ Afișăm mesaj de succes și dezactivăm butonul
+      setSuccessMessage("Cont creat! Verifică emailul pentru confirmare.");
     } catch (err: any) {
       setError(
         err?.response?.data?.detail
           ? String(err.response.data.detail)
-          : "Eroare la înregistrare sau login!",
+          : "Eroare la înregistrare!"
       );
     }
     setLoading(false);
@@ -81,6 +84,7 @@ const RegisterPage: React.FC = () => {
             value={username}
             autoComplete="username"
             onChange={(e) => setUsername(e.target.value)}
+            disabled={!!successMessage}
           />
           <input
             type="email"
@@ -89,6 +93,7 @@ const RegisterPage: React.FC = () => {
             value={email}
             autoComplete="email"
             onChange={(e) => setEmail(e.target.value)}
+            disabled={!!successMessage}
           />
           <input
             type="password"
@@ -97,6 +102,7 @@ const RegisterPage: React.FC = () => {
             value={password}
             autoComplete="new-password"
             onChange={(e) => setPassword(e.target.value)}
+            disabled={!!successMessage}
           />
           <input
             type="password"
@@ -105,14 +111,18 @@ const RegisterPage: React.FC = () => {
             value={password2}
             autoComplete="new-password"
             onChange={(e) => setPassword2(e.target.value)}
+            disabled={!!successMessage}
           />
+
           {error && <div className="text-red-400 text-center">{error}</div>}
+          {successMessage && <div className="text-green-400 text-center font-semibold">{successMessage}</div>}
+
           <button
             type="submit"
             className="py-2 rounded-xl bg-primary-blue hover:bg-accent-blue text-white font-bold shadow transition"
-            disabled={loading}
+            disabled={loading || !!successMessage}
           >
-            {loading ? "Se înregistrează..." : "Creează cont"}
+            {loading ? "Se înregistrează..." : successMessage ? "Așteaptă confirmarea..." : "Creează cont"}
           </button>
         </form>
         <div className="mt-4 text-center">
@@ -121,6 +131,7 @@ const RegisterPage: React.FC = () => {
             type="button"
             className="text-primary-blue underline font-semibold"
             onClick={() => navigate("/login")}
+            disabled={!!successMessage}
           >
             Login
           </button>

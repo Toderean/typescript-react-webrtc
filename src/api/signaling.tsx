@@ -156,3 +156,52 @@ export async function getSessionKey(callId: string) {
   return axios.get(`${API_URL}/calls/${callId}/session_key`, authHeaders());
 }
 
+export async function getMyGroups() {
+  const res = await fetch(`${API_URL}/groups`, authHeaders());
+  return res.json();
+}
+
+export async function createGroup(name: string) {
+  const res = await fetch(`${API_URL}/groups`, {
+    method: "POST",
+    headers: {
+      ...authHeaders().headers,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name }),
+  });
+  return res.json();
+}
+
+export async function inviteToGroup(groupId: number, userId: number) {
+  const res = await fetch(`${API_URL}/groups/${groupId}/invite`, {
+    method: "POST",
+    headers: {
+      ...authHeaders().headers,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ user_id: userId }),
+  });
+  return res.json();
+}
+
+export async function acceptGroupInvite(groupId: number) {
+  const res = await fetch(`${API_URL}/groups/${groupId}/accept`, {
+    method: "POST",
+    headers: authHeaders().headers,
+  });
+  return res.json();
+}
+
+export async function getGroupMembers(groupId: number) {
+  const res = await fetch(`${API_URL}/groups/${groupId}/members`, authHeaders());
+  return res.json();
+}
+
+export const requestToJoinGroup = async (groupId: number) => {
+  const res = await axios.post(`${API_URL}/groups/${groupId}/request`, {}, authHeaders());
+  return res.data;
+};
+
+
+
