@@ -53,11 +53,11 @@ const GroupCallPage: React.FC = () => {
       for (const user of selected) {
         try {
           const pubKey = await getPeerPublicKey(user);
-          if (!pubKey) throw new Error(`🔒 Cheia publică lipsește pentru ${user}`);
+          if (!pubKey) throw new Error(`cheie publica lipsa pentru ${user}`);
           const encrypted = await encryptRSA(pubKey, exported);
           await sendSignaling(call_id, "session-key", encrypted, user);
         } catch (err) {
-          console.error(`❌ Eroare la trimiterea cheii către ${user}:`, err);
+          console.error(`eroare la trimiterea cheii catre ${user}:`, err);
         }
       }
       

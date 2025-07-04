@@ -85,7 +85,6 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
       .then((camStream) => {
         setCameraStream(camStream);
         setLocalStream(camStream);
-        console.log("📷 Camera stream obținut:", camStream);
       })
       .catch(console.error);
   }, []);
@@ -94,7 +93,7 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
     try {
       await axios.post(`${API_URL}/users/status`, { status }, authHeaders());
     } catch (err) {
-      console.error("❌ Eroare la actualizarea statusului:", err);
+      console.error("Eroare la actualizarea statusului:", err);
     }
   }
 
@@ -121,9 +120,8 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
       if (keyB64) {
         const key = await importSessionKeyB64(keyB64);
         setSessionKey(key);
-        console.log("🔑 Inițiator: cheia de sesiune încărcată din sessionStorage.");
       } else {
-        console.warn("⚠️ Inițiatorul nu are cheia în sessionStorage!");
+        console.warn("initiatorul nu are cheia in sessionStorage!");
       }
     };
   
@@ -143,20 +141,21 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
           const encryptedKey = sessionSignals[0].content;
 
           if (!encryptedKey) {
-            console.warn("🔁 Încă aștept bucățile cheii de sesiune...");
+            console.warn("astept bucatile din cheia de sesiune...");
             return;
           }
   
-          console.info("🔐 Am primit cheia completă criptată:", encryptedKey.slice(0, 50) + "...");
+          
   
           const decryptedB64: string = await decryptRSA(myPrivateKey, encryptedKey);
           const key: CryptoKey = await importSessionKeyB64(decryptedB64);
-  
+          
+          console.info("cheia AES decriptată:", decryptedB64);
+
           setSessionKey(key);
           sessionStorage.setItem(`session_key_${callId}`, decryptedB64);
           setCanAccept(true);
   
-          console.log("✅ Cheia de sesiune a fost setată cu succes.");
   
           if (pendingAccept) {
             setPendingAccept(false);
@@ -165,7 +164,7 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
   
           clearInterval(interval); 
         } catch (err) {
-          console.error("❌ Eroare la decriptarea cheii de sesiune:", err);
+          console.error("Eroare la decriptarea cheii de sesiune:", err);
         }
       }, 1000); 
   
@@ -177,14 +176,12 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
 
   useEffect(() => {
     if (!cameraStream || !sessionKey) {
-      console.log("⏳ Astept camera sau cheia de sesiune...");
       return;
     }
     const setupInitiator = async () => {
     if (isInitiator && !peer.current) {
       await updateStatus("in_call");
-      console.log("✅ Inițiator: creez peer și trimit offer");
-      joinCall(callId).catch((err) => console.error("❌ joinCall failed:", err));
+      joinCall(callId).catch((err) => console.error("joinCall failed:", err));
 
       const p = new Peer({
         initiator: true,
@@ -201,24 +198,22 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
             JSON.stringify(data)
           );
           const type: SignalingType = getSignalingType(data);
+          console.log("Encrypted SDP offer (initiator):", payload); 
           await sendSignaling(callId, type, payload, targetUser);
-          console.log(`📡 Semnal trimis:`, { type, data });
         } catch (err) {
-          console.error("❌ Eroare la trimiterea semnalului:", err);
+          console.error("Eroare la trimiterea semnalului:", err);
         }
       });
   
       p.on("stream", (stream: MediaStream) => {
-        console.log("🎥 Stream primit de la peer.");
         setRemoteStream(stream);
       });
   
       p.on("connect", () => {
-        console.log("✅ Peer conectat");
       });
   
       p.on("error", (err) => {
-        console.error("🔥 Eroare în Peer:", err);
+        console.error("eroare în Peer:", err);
       });
   
       peer.current = p;
@@ -236,7 +231,6 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
       return;
     }
 
-    console.log("🔑 Cheie AES în callee (b64):", sessionStorage.getItem(`session_key_${callId}`));
 
   
     await joinCall(callId);
@@ -248,22 +242,15 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
     if (!offerSignals.length) return;
     const offerRaw = offerSignals[0].content;
     
-    console.log("📦 Oferta criptată (primii 100 chars):", offerRaw?.slice(0, 100) + "...");
-    console.log("🔑 Cheia AES (base64):", await exportSessionKeyB64(sessionKey!));
-    console.log("📏 Lungime oferta criptată:", offerRaw?.length);
   
     try {
       const decrypted = await decryptWithSessionKey(sessionKey, offerRaw);
-      console.log("🔓 Decrypted offer string:", decrypted);
   
       let offer;
       try {
         offer = JSON.parse(decrypted);
       } catch (jsonErr) {
-        console.error("❌ JSON.parse failed:", jsonErr);
-        console.log("🔐 Cheia de sesiune:", sessionKey);
-        console.log("📦 Oferta criptată primită:", offerRaw);
-        console.log("🔓 Decrypted (INVALID JSON):", decrypted);
+        console.error("JSON.parse failed:", jsonErr);
         return;
       }
   
@@ -274,7 +261,6 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
       });
   
       p.on("signal", async (data: any) => {
-        console.log("📤 Signal generat:", data);
         const payload = await encryptWithSessionKey(sessionKey, JSON.stringify(data));
         const type: SignalingType = getSignalingType(data);
         await sendSignaling(callId, type, payload, targetUser);
@@ -288,10 +274,7 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
       setAccepted(true);
   
     } catch (err) {
-      console.error("❌ Eroare la decriptarea ofertei:", err);
-      console.log("🔐 Cheia AES (CryptoKey):", sessionKey);
-      console.log("📦 Oferta criptată completă:", offerRaw);
-
+      console.error("Eroare la decriptarea ofertei:", err);
     }
   };
   
@@ -315,6 +298,7 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
         window.location.href = "/";
         return;
       }
+
   
       // OFFER
       if (
@@ -326,13 +310,13 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
         try {
           const decrypted = await decryptWithSessionKey(sessionKey, offerSignals[0].content);
           const offer = JSON.parse(decrypted);
-  
           const p = new Peer({
             initiator: false,
             trickle: false,
             stream: cameraStream,
             config: { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] },
           });
+
   
           p.on("signal", async (data: any) => {
             const payload = await encryptWithSessionKey(sessionKey, JSON.stringify(data));
@@ -345,7 +329,7 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
           p.signal(offer);
           appliedOffer.current = true;
         } catch (err) {
-          console.error("❌ Eroare la procesarea offer-ului:", err);
+          console.error("Eroare la procesarea offer-ului:", err);
         }
       }
   
@@ -358,13 +342,16 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
         peer.current
       ) {
         try {
+
+
           const decrypted = await decryptWithSessionKey(sessionKey, answerSignals[0].content);
+          console.log("Decrypted SDP answer:", decrypted);
           const answer = JSON.parse(decrypted);
           peer.current.signal(answer);
           appliedAnswer.current = true;
           setAccepted(true);
         } catch (err) {
-          console.error("❌ Eroare la procesarea answer-ului:", err);
+          console.error("Eroare la procesarea answer-ului:", err);
         }
       }
   
@@ -372,11 +359,13 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
       if (peer.current && iceSignals.length > 0) {
         for (const iceSignal of iceSignals) {
           try {
+
+
             const decrypted = await decryptWithSessionKey(sessionKey, iceSignal.content);
             const ice = JSON.parse(decrypted);
             peer.current.signal(ice);
           } catch (err) {
-            console.error("❌ Eroare la procesarea ICE:", err);
+            console.error("Eroare la procesarea ICE:", err);
           }
         }
       }
@@ -746,7 +735,7 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
                   Acceptă
                 </button>
               ) : (
-                <p className="text-white">🔐 Aștept cheia de sesiune...</p>
+                <p className="text-white">Aștept cheia de sesiune...</p>
               )}
               <button
                 className="px-6 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold shadow transition"

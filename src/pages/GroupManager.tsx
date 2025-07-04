@@ -62,6 +62,7 @@ const GroupManager: React.FC = () => {
     if (!groupName.trim()) return alert("Introdu un nume pentru grup!");
     try {
       const res = await axios.post(`${API_URL}/groups`, { name: groupName }, authHeaders());
+      
       const groupId = res.data.id;
 
       for (const user of selectedMembers) {

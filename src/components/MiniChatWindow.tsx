@@ -68,6 +68,8 @@ const MiniChatWindow: React.FC<Props> = ({ receiver, publicKey, currentUser, onC
 
     const encrypted = await encryptMessageForUser(message, publicKey, key); 
 
+    console.log(`mesaj scris de catre utilizator: ${message}`);
+    console.log(`mesaj criptat trimis catre ${receiver} : ${encrypted}`);
 
     const res = await axios.post(`${API_URL}/messages/send`, {
       to: receiver,
@@ -91,6 +93,9 @@ const MiniChatWindow: React.FC<Props> = ({ receiver, publicKey, currentUser, onC
               ? "[Trimis de tine]"
               : await decryptMessageForUser(msg.content);
   
+              console.log(`mesaj primit de la utilizator: ${msg.content}`);
+              console.log(`mesaj decriptat: ${text}`);
+
             return {
               fromMe: msg.from === "me",
               text,

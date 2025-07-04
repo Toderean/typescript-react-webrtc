@@ -148,6 +148,7 @@ const CallSelectPage: React.FC = () => {
   
     const peerPublicKey = await getPeerPublicKey(callee);
     const encrypted = await encryptRSA(peerPublicKey, exported);
+    console.log(`cheia de sesiune criptata: ${encrypted}`);
     await sendSignaling(callId, "session-key", encrypted, callee);
   
     navigate(`/call/${callId}`);

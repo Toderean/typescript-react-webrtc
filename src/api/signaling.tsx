@@ -37,7 +37,7 @@ export async function sendSignaling(
 ) {
   const dedupKey = `${callId}-${type}-${targetUser}`;
   if (type === "session-key" && sentKeys.has(dedupKey)) {
-    console.warn("⚠️ Cheia de sesiune a fost deja trimisă, ignor.");
+    console.warn(" Cheia de sesiune a fost deja trimisă, ignor.");
     return;
   }
 
