@@ -5,7 +5,7 @@ const RemoteVideo = ({ stream }: { stream: MediaStream | null }) => {
 
   useEffect(() => {
     if (!stream) {
-      console.warn("⚠️ No remote stream yet");
+      console.warn("No remote stream yet");
       return;
     }
 

@@ -16,7 +16,7 @@ const LogoutButton: React.FC<Props> = ({ inCall = false, endCall }) => {
       try {
         await axios.post(`${API_URL}/users/status`, { status }, authHeaders());
       } catch (err) {
-        console.error("❌ Eroare la actualizarea statusului:", err);
+        console.error("Eroare la actualizarea statusului:", err);
       }
     }
 

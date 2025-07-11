@@ -58,7 +58,6 @@ const RegisterPage: React.FC = () => {
       localStorage.setItem("registeredUsername", username);
       localStorage.setItem("registeredPassword", password);
 
-      // ✅ Afișăm mesaj de succes și dezactivăm butonul
       setSuccessMessage("Cont creat! Verifică emailul pentru confirmare.");
     } catch (err: any) {
       setError(

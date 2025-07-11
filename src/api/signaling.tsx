@@ -77,7 +77,7 @@ export async function getSignalingMerged(
     forUser
   );
   if (!metaChunks.length) {
-    console.warn(`⚠️ Nu există metadata pentru semnalul ${type}`);
+    console.warn(`Nu există metadata pentru semnalul ${type}`);
     return null;
   }
 
@@ -102,11 +102,11 @@ export async function getSignalingMerged(
 
   console.log(`🔍 Reconstruim ${type} cu ${parsed.length}/${totalExpected} bucăți.`);
   parsed.forEach(p => {
-    console.log(`🧩 Chunk ${p.index + 1}/${p.total} — lungime: ${p.content.length}`);
+    console.log(`Chunk ${p.index + 1}/${p.total} — lungime: ${p.content.length}`);
   });
   
   if (parsed.some(p => p.content.length === 0)) {
-    console.warn("❗ Un chunk are conținut gol. Datele pot fi corupte.");
+    console.warn("Un chunk are conținut gol. Datele pot fi corupte.");
   }
   
   
@@ -115,7 +115,7 @@ export async function getSignalingMerged(
     parsed.some((p) => p.total !== totalExpected)
   ) {
     console.warn(
-      `⏳ Încă aștept bucățile semnalului... (${parsed.length}/${totalExpected})`
+      `Încă aștept bucățile semnalului... (${parsed.length}/${totalExpected})`
     );
     return null;
   }

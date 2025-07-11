@@ -144,9 +144,6 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
             console.warn("astept bucatile din cheia de sesiune...");
             return;
           }
-  
-          
-  
           const decryptedB64: string = await decryptRSA(myPrivateKey, encryptedKey);
           const key: CryptoKey = await importSessionKeyB64(decryptedB64);
           
@@ -154,14 +151,11 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
 
           setSessionKey(key);
           sessionStorage.setItem(`session_key_${callId}`, decryptedB64);
-          setCanAccept(true);
-  
-  
+          setCanAccept(true);  
           if (pendingAccept) {
             setPendingAccept(false);
             handleAccept();
           }
-  
           clearInterval(interval); 
         } catch (err) {
           console.error("Eroare la decriptarea cheii de sesiune:", err);
@@ -188,9 +182,6 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
         trickle: false,
         stream: cameraStream,
       });
-
-
-  
       p.on("signal", async (data: any) => {
         try {
           const payload = await encryptWithSessionKey(
@@ -230,22 +221,13 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
       setPendingAccept(true);
       return;
     }
-
-
-  
     await joinCall(callId);
-
     await updateStatus("in_call");
-
-
     const offerSignals = await getSignaling(callId, "offer", me);
     if (!offerSignals.length) return;
     const offerRaw = offerSignals[0].content;
-    
-  
     try {
       const decrypted = await decryptWithSessionKey(sessionKey, offerRaw);
-  
       let offer;
       try {
         offer = JSON.parse(decrypted);
@@ -253,7 +235,6 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
         console.error("JSON.parse failed:", jsonErr);
         return;
       }
-  
       const p = new Peer({
         initiator: false,
         trickle: false,
@@ -298,8 +279,6 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
         window.location.href = "/";
         return;
       }
-
-  
       // OFFER
       if (
         !isInitiator &&
@@ -332,7 +311,6 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
           console.error("Eroare la procesarea offer-ului:", err);
         }
       }
-  
       // ANSWER
       if (
         isInitiator &&
@@ -342,8 +320,6 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
         peer.current
       ) {
         try {
-
-
           const decrypted = await decryptWithSessionKey(sessionKey, answerSignals[0].content);
           console.log("Decrypted SDP answer:", decrypted);
           const answer = JSON.parse(decrypted);
@@ -359,8 +335,6 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
       if (peer.current && iceSignals.length > 0) {
         for (const iceSignal of iceSignals) {
           try {
-
-
             const decrypted = await decryptWithSessionKey(sessionKey, iceSignal.content);
             const ice = JSON.parse(decrypted);
             peer.current.signal(ice);
@@ -369,7 +343,6 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
           }
         }
       }
-  
       // SCREEN SHARE
       for (const sig of screenShares) {
         if (sig.content === "start") setRemoteScreenShare(true);

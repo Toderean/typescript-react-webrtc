@@ -81,7 +81,6 @@ const HeaderBar: React.FC<Props> = ({
             <div className="absolute right-0 mt-2 w-80 bg-darkblue rounded shadow-xl p-4 z-50">
               <h4 className="text-white font-bold mb-2">🔔 Notificări</h4>
   
-              {/* Invitații primite */}
               <div className="mb-4">
                 <h5 className="text-primary-blue font-semibold text-sm mb-2">Invitații la grupuri</h5>
                 {invitations.length === 0 ? (

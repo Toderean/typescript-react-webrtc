@@ -17,7 +17,6 @@ const EmailConfirmationPage: React.FC = () => {
         const privateKeyPEM = localStorage.getItem("privateKeyPEM");
 
         if (username && password && privateKeyPEM) {
-        // downloadPEM(privateKeyPEM, "private_key.pem");
 
         const res = await axios.post(`${API_URL}/auth/login`, {
             username,
