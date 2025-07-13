@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useParams } from "react-router-dom";
 import axios from "axios";
 import { API_URL } from "../api/signaling";
-import { downloadPEM } from "../api/cryptoUtils";
+import { importPrivateKeyForSign } from "../api/cryptoUtils";
 
 const EmailConfirmationPage: React.FC = () => {
   const { token } = useParams();
@@ -12,29 +12,42 @@ const EmailConfirmationPage: React.FC = () => {
     try {
       await axios.get(`${API_URL}/auth/confirm-email/${token}`);
       setStatus("success");
-      const username = localStorage.getItem("registeredUsername");
-        const password = localStorage.getItem("registeredPassword");
-        const privateKeyPEM = localStorage.getItem("privateKeyPEM");
 
-        if (username && password && privateKeyPEM) {
+      const username = localStorage.getItem("registeredUsername");
+      const password = localStorage.getItem("registeredPassword");
+      const privateKeyPEM = localStorage.getItem("privateKeyPEM");
+
+      if (username && password && privateKeyPEM) {
+        const nonceRes = await axios.post(`${API_URL}/auth/get-nonce`, { username });
+        const nonce = nonceRes.data.nonce;
+
+        const privateKey = await importPrivateKeyForSign(privateKeyPEM);
+        const encoder = new TextEncoder();
+        const data = encoder.encode(nonce);
+        const signature = await window.crypto.subtle.sign(
+          { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+          privateKey,
+          data
+        );
+        const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)));
 
         const res = await axios.post(`${API_URL}/auth/login`, {
-            username,
-            password,
+          username,
+          password,
+          signature: signatureB64,
         });
 
-        const token = res.data.access_token;
-        localStorage.setItem("token", token);
+        localStorage.setItem("token", res.data.access_token);
 
-        // Cleanup
+        sessionStorage.setItem("privateKeyPEM", privateKeyPEM);
+        localStorage.removeItem("privateKeyPEM");
         localStorage.removeItem("registeredUsername");
         localStorage.removeItem("registeredPassword");
-        sessionStorage.setItem("privateKeyPEM",privateKeyPEM);
-        localStorage.removeItem("privateKeyPEM");
 
         window.location.href = "/";
-        }
-    } catch {
+      }
+    } catch (err) {
+      console.error(err);
       setStatus("error");
     }
   };
@@ -57,7 +70,7 @@ const EmailConfirmationPage: React.FC = () => {
         )}
 
         {status === "success" && (
-          <p className="text-green-400 font-bold">Email confirmat cu succes! ✅</p>
+          <p className="text-green-400 font-bold">Email confirmat cu succes! Te conectăm... ✅</p>
         )}
 
         {status === "error" && (

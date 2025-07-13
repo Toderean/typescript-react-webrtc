@@ -50,16 +50,16 @@ const RegisterPage: React.FC = () => {
       });
 
       downloadPEM(privateKeyPEM, "private_key.pem");
-      alert(
-        "Cheia privată a fost generată. Salvează fișierul cu grijă! Nu o vei mai putea descărca ulterior."
-      );
+      alert("Cheia privată a fost generată. Salvează fișierul cu grijă!");
 
-      localStorage.setItem("privateKeyPEM", privateKeyPEM);
+      sessionStorage.setItem("privateKeyPEM", privateKeyPEM);
       localStorage.setItem("registeredUsername", username);
       localStorage.setItem("registeredPassword", password);
+      localStorage.setItem("privateKeyPEM", privateKeyPEM);
 
       setSuccessMessage("Cont creat! Verifică emailul pentru confirmare.");
     } catch (err: any) {
+      console.error(err);
       setError(
         err?.response?.data?.detail
           ? String(err.response.data.detail)

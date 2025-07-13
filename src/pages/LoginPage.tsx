@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import { generateKeyPair, exportPrivateKeyPEM, exportPublicKeyPEM, downloadPEM, importPrivateKeyFromPEM } from "../api/cryptoUtils";
+import { importPrivateKeyForSign } from "../api/cryptoUtils";
 import { API_URL } from "../api/signaling";
 
 const LoginPage: React.FC = () => {
@@ -14,35 +14,62 @@ const LoginPage: React.FC = () => {
 
   const login = async () => {
     try {
-      const res = await axios.post(`${API_URL}/auth/login`, {
-        username,
-        password,
-      });
-      localStorage.setItem("token", res.data.access_token);
-
-      if (!sessionStorage.getItem("privateKeyPEM")) {
+      const pem = sessionStorage.getItem("privateKeyPEM");
+      if (!pem) {
         setNeedKey(true);
         return;
       }
+
+      const nonceRes = await axios.post(`${API_URL}/auth/get-nonce`, { username });
+      const nonce = nonceRes.data.nonce;
+
+      const privateKey = await importPrivateKeyForSign(pem);
+      const encoder = new TextEncoder();
+      const data = encoder.encode(nonce);
+
+      const signature = await window.crypto.subtle.sign(
+        { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+        privateKey,
+        data
+      );
+      const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)));
+
+      const res = await axios.post(`${API_URL}/auth/login`, {
+        username,
+        password,
+        signature: signatureB64,
+      });
+
+      localStorage.setItem("token", res.data.access_token);
       window.location.href = "/";
     } catch (err: any) {
+      console.error(err);
+
+      // 🔄 Șterge cheia greșită și cere încărcare din nou
+      sessionStorage.removeItem("privateKeyPEM");
+      setNeedKey(true);
+
       if (err.response?.status === 403) {
         setNeedConfirmation(true);
+      } else if (err.response?.data?.detail) {
+        setError(err.response.data.detail);
       } else {
         setError("Autentificare eșuată");
       }
     }
   };
 
-  async function handleUploadKey(event: React.ChangeEvent<HTMLInputElement>) {
+  const handleUploadKey = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       const pem = await file.text();
       sessionStorage.setItem("privateKeyPEM", pem);
       setNeedKey(false);
-      window.location.href = "/";
+      setError(null);
+      setNeedConfirmation(false);
+      await login();
     }
-  }
+  };
 
   const resendConfirmation = async () => {
     try {

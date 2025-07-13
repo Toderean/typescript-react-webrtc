@@ -68,6 +68,8 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
   const [accepted, setAccepted] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [canAccept, setCanAccept] = useState(false);
+  const [remoteCameraOff, setRemoteCameraOff] = useState(false);
+
 
   const peer = useRef<Peer.Instance | null>(null);
   const seenSignals = useRef<Set<number>>(new Set());
@@ -265,12 +267,13 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
       if (!cameraStream || !sessionKey) return;
       if (!isInitiator && !accepted) return;
   
-      const [offerSignals, answerSignals, iceSignals, ends, screenShares] = await Promise.all([
+      const [offerSignals, answerSignals, iceSignals, ends, screenShares, cameraSignals] = await Promise.all([
         getSignaling(callId, "offer", me),
         getSignaling(callId, "answer", me),
         getSignaling(callId, "ice", me),
         getSignaling(callId, "end", me),
         getSignaling(callId, "screen-share", me),
+        getSignaling(callId, "camera", me),
       ]);
   
       if (ends.length) {
@@ -347,6 +350,12 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
       for (const sig of screenShares) {
         if (sig.content === "start") setRemoteScreenShare(true);
         if (sig.content === "stop") setRemoteScreenShare(false);
+      }
+
+      // CAMERA
+      for (const sig of cameraSignals) {
+        if (sig.content === "on") setRemoteCameraOff(false);
+        if (sig.content === "off") setRemoteCameraOff(true);
       }
     }, 1500);
   
@@ -441,7 +450,6 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
         </h3>
     
         <div className="flex flex-col lg:flex-row gap-4 w-full h-[80vh]">
-          {/* Screen Share Left */}
           <div className="flex-1 bg-black rounded-2xl overflow-hidden shadow-lg flex items-center justify-center">
             <video
               autoPlay
@@ -454,29 +462,25 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
             />
           </div>
     
-          {/* Camera feeds Right */}
           <div className="flex flex-col gap-4 w-full lg:w-[420px]">
-            {/* Local */}
             <div className="flex-1 bg-darkblue rounded-2xl shadow-lg p-2 flex flex-col items-center">
               <span className="mb-2 text-accent-blue font-semibold">Tu</span>
               <LocalVideo stream={cameraStream} />
             </div>
     
-            {/* Remote */}
             <div className="flex-1 bg-midnight rounded-2xl shadow-lg p-2 flex flex-col items-center">
               <span className="mb-2 text-primary-blue font-semibold">{targetUser}</span>
               {remoteStream ? (
                 <RemoteVideo stream={remoteStream} />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-white text-lg">
-                  Aștept fluxul video...
+                <div className="w-64 h-48 bg-gray-700 rounded-full flex items-center justify-center text-white text-6xl font-bold shadow-xl">
+                  {targetUser?.[0]?.toUpperCase() ?? "?"}
                 </div>
               )}
             </div>
           </div>
         </div>
     
-        {/* Controls */}
         <div className="mt-6 flex justify-center gap-4">
           <button
             onClick={() => {
@@ -540,20 +544,16 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
         </h3>
     
         <div className="flex flex-col lg:flex-row gap-4 w-full h-[80vh]">
-          {/* Screen Share from remote */}
           <div className="flex-1 bg-black rounded-2xl overflow-hidden shadow-lg flex items-center justify-center">
             <RemoteVideo stream={remoteStream} />
           </div>
     
-          {/* Camera feeds right */}
           <div className="flex flex-col gap-4 w-full lg:w-[420px]">
-            {/* Local camera */}
             <div className="flex-1 bg-darkblue rounded-2xl shadow-lg p-2 flex flex-col items-center">
               <span className="mb-2 text-accent-blue font-semibold">Tu</span>
               <LocalVideo stream={cameraStream} />
             </div>
     
-            {/* Numele celuilalt */}
             <div className="flex-1 bg-midnight rounded-2xl shadow-lg p-2 flex flex-col items-center justify-center">
               <span className="text-primary-blue font-semibold">{targetUser}</span>
               <span className="text-white mt-2 text-sm opacity-70">Partajează ecranul</span>
@@ -561,7 +561,6 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
           </div>
         </div>
     
-        {/* Butoane control */}
         <div className="mt-6 flex justify-center gap-4">
           <button
             onClick={() => {
@@ -621,14 +620,13 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
       </h3>
   
       <div className="flex flex-col md:flex-row w-full h-[75vh] gap-4">
-        {/* Local user */}
         <div className="w-full md:w-1/2 flex flex-col items-center justify-center relative bg-darkblue rounded-2xl shadow-lg p-4">
           <span className="mb-2 text-accent-blue font-semibold">Tu</span>
-          {cameraStream?.getVideoTracks()[0]?.enabled ? (
-            <LocalVideo stream={cameraStream} />
-          ) : (
+            {!isCameraOff && localStream ? (
+              <LocalVideo stream={localStream} />
+            ):  (
             <div className="w-64 h-48 bg-gray-700 rounded-full flex items-center justify-center text-white text-6xl font-bold shadow-xl">
-              {me[0]?.toUpperCase() ?? "?"}
+              {me?.[0]?.toUpperCase() ?? "?"}
             </div>
           )}
   
@@ -653,15 +651,16 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
             </button>
   
             <button
-              onClick={() => {
+              onClick={async () => {
                 const videoTrack = peer.current?.streams[0]
                   ?.getVideoTracks()
                   ?.find((t) => t.kind === "video");
               
-                if (videoTrack) {
-                  videoTrack.enabled = !videoTrack.enabled;
-                  setIsCameraOff(!videoTrack.enabled);
-                }
+                  if (videoTrack) {
+                    videoTrack.enabled = !videoTrack.enabled;
+                    setIsCameraOff(!videoTrack.enabled);
+                    await sendSignaling(callId, "camera", videoTrack.enabled ? "on" : "off", targetUser);
+                  }
               }}              
               className={`p-3 rounded-full text-white text-xl shadow transition ${
                 isCameraOff ? "bg-yellow-600 hover:bg-yellow-700" : "bg-primary-blue hover:bg-accent-blue"
@@ -686,18 +685,15 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
           </div>
         </div>
   
-        {/* Remote user */}
         <div className="w-full md:w-1/2 flex flex-col items-center justify-center bg-midnight rounded-2xl shadow-lg p-4">
           <span className="mb-2 text-primary-blue font-semibold">{targetUser}</span>
-          {remoteStream ? (
+          {!remoteCameraOff ? (
             <RemoteVideo stream={remoteStream} />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-white text-lg">
-              Aștept fluxul video...
+            <div className="w-64 h-48 bg-gray-700 rounded-full flex items-center justify-center text-white text-6xl font-bold shadow-xl">
+              {targetUser?.[0]?.toUpperCase() ?? "?"}
             </div>
           )}
-  
-          {/* Accept/Refuz (doar la callee, dacă nu a acceptat încă) */}
           {!isInitiator && !accepted && (
             <div className="mt-6 flex gap-4">
               {canAccept ? (

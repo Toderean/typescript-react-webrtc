@@ -80,6 +80,23 @@ export async function importPrivateKeyFromPEM(pem: string): Promise<CryptoKey> {
   );
 }
 
+export async function importPrivateKeyForSign(pem: string): Promise<CryptoKey> {
+  const b64 = pem.replace(/-----(BEGIN|END) PRIVATE KEY-----|\n/g, "");
+  const raw = Uint8Array.from(window.atob(b64), c => c.charCodeAt(0));
+
+  return await window.crypto.subtle.importKey(
+    "pkcs8",
+    raw.buffer,
+    {
+      name: "RSASSA-PKCS1-v1_5",
+      hash: "SHA-256"
+    },
+    false,
+    ["sign"]
+  );
+}
+
+
 export async function generateSessionKey(): Promise<CryptoKey> {
   return window.crypto.subtle.generateKey(
     { name: "AES-GCM", length: 256 },

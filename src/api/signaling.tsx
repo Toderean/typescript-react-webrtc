@@ -8,7 +8,8 @@ export type SignalingType =
   | "ice"
   | "end"
   | "screen-share"
-  | "session-key";
+  | "session-key"
+  | "camera";
 
 interface Chunk {
   content: string;
@@ -53,8 +54,6 @@ export async function sendSignaling(
   }
 }
 
-
-
 export async function getSignaling(callId: string, type: SignalingType, user: string) {
   const res = await axios.get(`${API_URL}/signaling/${callId}/${type}`, {
     ...authHeaders(),
@@ -62,9 +61,6 @@ export async function getSignaling(callId: string, type: SignalingType, user: st
   });
   return res.data;
 }
-
-
-
 
 export async function getSignalingMerged(
   callId: string,
@@ -80,8 +76,6 @@ export async function getSignalingMerged(
     console.warn(`Nu există metadata pentru semnalul ${type}`);
     return null;
   }
-
-  
 
   const totalExpected = parseInt(metaChunks[0].content, 10);
 
@@ -104,12 +98,11 @@ export async function getSignalingMerged(
   parsed.forEach(p => {
     console.log(`Chunk ${p.index + 1}/${p.total} — lungime: ${p.content.length}`);
   });
-  
+
   if (parsed.some(p => p.content.length === 0)) {
     console.warn("Un chunk are conținut gol. Datele pot fi corupte.");
   }
-  
-  
+
   if (
     parsed.length !== totalExpected ||
     parsed.some((p) => p.total !== totalExpected)
@@ -124,9 +117,6 @@ export async function getSignalingMerged(
 
   return parsed.map((p) => p.content).join("");
 }
-
-
-
 
 export function deleteSignaling(callId: string) {
   return axios.delete(`${API_URL}/signaling/${callId}`, authHeaders());
@@ -202,6 +192,3 @@ export const requestToJoinGroup = async (groupId: number) => {
   const res = await axios.post(`${API_URL}/groups/${groupId}/request`, {}, authHeaders());
   return res.data;
 };
-
-
-
