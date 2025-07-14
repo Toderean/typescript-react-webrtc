@@ -106,12 +106,12 @@ const VideoChatGroup: React.FC<Props> = ({ callId }) => {
           const pem = await getPublicKey(user);
           pubKeys[user] = await importPublicKeyFromPEM(pem);
         } catch (err) {
-          console.error(`❌ Eroare la obținerea/importul cheii publice pentru ${user}:`, err);
+          console.error(`Eroare la obținerea/importul cheii publice pentru ${user}:`, err);
         }
       }
       const privPEM = sessionStorage.getItem("privateKeyPEM");
       if (!privPEM) {
-        console.error("❌ Nu există cheia privată în sessionStorage");
+        console.error("Nu există cheia privată în sessionStorage");
         return;
       }
       const priv = await importPrivateKeyFromPEM(privPEM);
@@ -131,7 +131,7 @@ const VideoChatGroup: React.FC<Props> = ({ callId }) => {
           setSessionKey(imported);
 
         } catch (err) {
-          console.error("❌ Eroare la decriptarea cheii de sesiune:", err);
+          console.error("Eroare la decriptarea cheii de sesiune:", err);
         }
       }
     })();

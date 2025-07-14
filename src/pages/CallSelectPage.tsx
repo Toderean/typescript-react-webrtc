@@ -19,7 +19,7 @@ const CallSelectPage: React.FC = () => {
   const statuses = useUserStatuses(users);
   const [publicKeys, setPublicKeys] = useState<Record<string, CryptoKey>>({});
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeChatUser, setActiveChatUser] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
   const navigate = useNavigate();
   const [status, setStatus] = useState("available");
   const token = localStorage.getItem("token");
@@ -53,6 +53,7 @@ const CallSelectPage: React.FC = () => {
           clearInterval(iv);
           navigate(`/call/${incoming.call_id}`);
         }
+        
       } catch (err) {}
     }, 2000);
     return () => clearInterval(iv);
@@ -153,6 +154,32 @@ const CallSelectPage: React.FC = () => {
   
     navigate(`/call/${callId}`);
   };
+
+
+
+  useEffect(() => {
+    if (!me) return;
+  
+    const interval = setInterval(async () => {
+      try {
+        const res = await axios.get(`${API_URL}/messages/unread_users?for_user=${me}`,
+          authHeaders(),
+        );
+        if (res.data.length > 0) {
+
+          const firstUnread = res.data[0];
+          setUnreadCount(firstUnread.count);
+          setChatTarget(firstUnread.username);
+        } else {
+          setUnreadCount(0);
+        }
+      } catch (err) {
+        console.error("Failed to fetch unread users", err);
+      }
+    }, 2000);
+  
+    return () => clearInterval(interval);
+  }, [me]);
   
   return (
     <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-midnight via-darkblue to-almost-black py-10">
@@ -278,16 +305,15 @@ const CallSelectPage: React.FC = () => {
         </motion.button>
       </div>
   
-      {!chatOpen && (
-        <FloatingChatButton
-          onClick={() => {
-            setChatTarget(users[0]);
-            setChatOpen(true);
-          }}
-          unreadCount={3}
-        />
-      )}
-  
+      {!chatOpen && unreadCount > 0 && chatTarget && (
+          <FloatingChatButton
+            onClick={() => {
+              setChatOpen(true);
+            }}
+            unreadCount={unreadCount}
+          />
+        )}
+
       {chatOpen && chatTarget && publicKeys[chatTarget] && (
         <MiniChatWindow
           receiver={chatTarget}

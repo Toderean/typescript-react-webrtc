@@ -22,8 +22,17 @@ const GroupListPage: React.FC = () => {
     const loadGroups = async () => {
       try {
         const myGroups = await getMyGroups();
+    
+        if (!Array.isArray(myGroups)) {
+          console.warn("Răspuns invalid de la getMyGroups:", myGroups);
+          setGroups([]);
+          return;
+        }
+    
         setGroups(myGroups);
-
+    
+        if (myGroups.length === 0) return;
+    
         for (const group of myGroups) {
           const groupMembers = await getGroupMembers(group.id);
           setMembers((prev) => ({ ...prev, [group.id]: groupMembers }));
@@ -32,6 +41,7 @@ const GroupListPage: React.FC = () => {
         console.error("Eroare la încărcarea grupurilor:", err);
       }
     };
+    
 
     loadGroups();
   }, []);
@@ -85,6 +95,11 @@ const GroupListPage: React.FC = () => {
     <div className="min-h-screen p-8 bg-gradient-to-br from-midnight via-darkblue to-almost-black text-white">
       <h2 className="text-3xl font-bold mb-8 text-primary-blue text-center drop-shadow">Grupurile mele</h2>
 
+      {groups.length === 0 && (
+        <div className="text-center text-gray-400 mt-8 text-lg">
+          Nu faci parte din niciun grup momentan.
+        </div>
+      )}
       <div className="space-y-6 max-w-3xl mx-auto">
         {groups.map((group) => (
           <div

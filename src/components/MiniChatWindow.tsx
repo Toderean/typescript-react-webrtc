@@ -20,45 +20,40 @@ const MiniChatWindow: React.FC<Props> = ({ receiver, publicKey, currentUser, onC
   const [message, setMessage] = useState("");
   const [chat, setChat] = useState<ChatMessage[]>([]);
 
-  async function decryptMessageForUser(encryptedB64: string): Promise<string> {
+  async function decryptMessageForUser(encryptedB64: string, fromMe: boolean, receiver: string): Promise<string> {
     try {
       const payload = JSON.parse(atob(encryptedB64));
-  
       const encryptedKey = fromBase64Url(payload.key);
       const iv = fromBase64Url(payload.iv);
       const ciphertext = fromBase64Url(payload.data);
   
-      const privateKeyPEM = sessionStorage.getItem("privateKeyPEM");
-      if (!privateKeyPEM) return "[Mesaj criptat cheia privată lipsește]";
+      let aesKey: CryptoKey | null = null;
   
-      const privateKey = await importPrivateKeyFromPEM(privateKeyPEM);
+      if (fromMe) {
+        const sessionKeyB64 = sessionStorage.getItem(`session_key_${receiver}`);
+        if (!sessionKeyB64) return "[Cheia de sesiune pentru mesajul propriu nu a fost găsită]";
+        aesKey = await importSessionKeyB64(sessionKeyB64);
+      } else {
+        const privateKeyPEM = sessionStorage.getItem("privateKeyPEM");
+        if (!privateKeyPEM) return "[Cheia privată lipsește – nu se poate decripta]";
+        const privateKey = await importPrivateKeyFromPEM(privateKeyPEM);
   
-      const aesRaw = await crypto.subtle.decrypt(
-        { name: "RSA-OAEP" },
-        privateKey,
-        encryptedKey
-      );
+        const aesRaw = await crypto.subtle.decrypt(
+          { name: "RSA-OAEP" },
+          privateKey,
+          encryptedKey
+        );
+        aesKey = await crypto.subtle.importKey("raw", aesRaw, "AES-GCM", true, ["decrypt"]);
+      }
   
-      const aesKey = await crypto.subtle.importKey(
-        "raw",
-        aesRaw,
-        "AES-GCM",
-        true,
-        ["decrypt"]
-      );
-  
-      const decrypted = await crypto.subtle.decrypt(
-        { name: "AES-GCM", iv },
-        aesKey,
-        ciphertext
-      );
-  
+      const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, aesKey, ciphertext);
       return new TextDecoder().decode(decrypted);
     } catch (err) {
       console.error("Eroare la decriptarea mesajului:", err);
       return "[Eroare la decriptare]";
     }
   }
+  
   
   const sendMessage = async () => {
     if (!message.trim()) return;
@@ -89,20 +84,18 @@ const MiniChatWindow: React.FC<Props> = ({ receiver, publicKey, currentUser, onC
   
         const decrypted = await Promise.all(
           data.map(async (msg: any) => {
-            const text = msg.from === "me"
-              ? "[Trimis de tine]"
-              : await decryptMessageForUser(msg.content);
-  
-              console.log(`mesaj primit de la utilizator: ${msg.content}`);
-              console.log(`mesaj decriptat: ${text}`);
-
+            const fromMe = msg.from === "me";
+            const text = await decryptMessageForUser(msg.content, fromMe, receiver);
+        
             return {
-              fromMe: msg.from === "me",
+              fromMe,
               text,
               status: msg.status,
             };
           })
         );
+        
+        
   
         setChat(decrypted);
       } catch (err) {

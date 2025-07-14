@@ -409,7 +409,10 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
     cameraStream?.getTracks().forEach((t) => t.stop());
     screenStream?.getTracks().forEach((t) => t.stop());
     await sendSignaling(callId, "end", "", targetUser);
-    await deleteSignaling(callId);
+    setTimeout(() => {
+      deleteSignaling(callId);
+    }, 3000);
+    
     window.location.href = "/";
   };
 
