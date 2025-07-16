@@ -363,7 +363,6 @@ const VideoChat: React.FC<Props> = ({ callId, isInitiator }) => {
   }, [cameraStream, accepted, callId, isInitiator, targetUser, sessionKey]);
   
 
-  
   const handleShareScreen = async () => {
     try {
       const scrStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
